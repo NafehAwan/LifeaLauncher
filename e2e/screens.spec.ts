@@ -13,6 +13,7 @@ test('screens', async () => {
   const { app, page } = await launch();
   await page.setViewportSize({ width: 1280, height: 780 });
   await page.waitForSelector('[data-testid="app-shell"]');
+  await page.evaluate(() => (window as unknown as { lifea: { invoke: (c: string, ...a: unknown[]) => Promise<unknown> } }).lifea.invoke('accounts:add-offline', 'Steve'));
   await page.waitForTimeout(1200);
   for (const [name, hash] of PAGES) {
     await page.evaluate((h) => (location.hash = h), hash);

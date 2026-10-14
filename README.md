@@ -16,6 +16,12 @@ A fast, blood-red Minecraft Java launcher and client — Dawn-style launcher lay
 - **Social:** friends, presence ("Playing on …"), DMs and cosmetics via the self-hostable [Lifea backend](server/README.md).
 - **Accounts:** Microsoft login, plus offline accounts for singleplayer and LAN.
 
+## Design
+
+Old (agent-5) vs new. Per-page comparisons are in [`docs/design`](docs/design).
+
+![Old design vs new design](docs/design/design-before-after-small.png)
+
 ## Install
 
 Download the installer for your OS from the latest [GitHub Release](https://github.com/nafehawan/lifealauncher/releases):
