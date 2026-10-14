@@ -7,6 +7,7 @@ export default tseslint.config(
   { ignores: ['dist', 'dist-electron', 'release', 'node_modules', 'mod', 'server/node_modules', 'server/dist', 'scripts', 'test-results', 'playwright-report'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  { files: ['**/*.cjs'], languageOptions: { globals: globals.node, sourceType: 'commonjs' } },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
@@ -18,4 +19,5 @@ export default tseslint.config(
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+  { files: ['e2e/**/*.ts', 'test/**/*.ts'], rules: { 'no-console': 'off' } },
 );

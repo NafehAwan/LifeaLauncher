@@ -1,0 +1,42 @@
+{
+  "id": "1.21.4",
+  "type": "release",
+  "mainClass": "net.minecraft.client.main.Main",
+  "assets": "19",
+  "assetIndex": { "id": "19", "sha1": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "size": 100, "totalSize": 1000, "url": "https://piston-meta.mojang.com/v1/packages/x/19.json" },
+  "javaVersion": { "component": "java-runtime-delta", "majorVersion": 21 },
+  "downloads": { "client": { "sha1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "size": 27000000, "url": "https://piston-data.mojang.com/v1/objects/b/client.jar" } },
+  "arguments": {
+    "game": [
+      "--username", "${auth_player_name}", "--version", "${version_name}", "--gameDir", "${game_directory}",
+      "--assetsDir", "${assets_root}", "--assetIndex", "${assets_index_name}", "--uuid", "${auth_uuid}",
+      "--accessToken", "${auth_access_token}", "--clientId", "${clientid}", "--xuid", "${auth_xuid}",
+      "--userType", "${user_type}", "--versionType", "${version_type}",
+      { "rules": [{ "action": "allow", "features": { "is_demo_user": true } }], "value": "--demo" },
+      { "rules": [{ "action": "allow", "features": { "has_custom_resolution": true } }], "value": ["--width", "${resolution_width}", "--height", "${resolution_height}"] },
+      { "rules": [{ "action": "allow", "features": { "has_quick_plays_support": true } }], "value": ["--quickPlayPath", "${quickPlayPath}"] },
+      { "rules": [{ "action": "allow", "features": { "is_quick_play_multiplayer": true } }], "value": ["--quickPlayMultiplayer", "${quickPlayMultiplayer}"] }
+    ],
+    "jvm": [
+      { "rules": [{ "action": "allow", "os": { "name": "osx" } }], "value": ["-XstartOnFirstThread"] },
+      { "rules": [{ "action": "allow", "os": { "name": "windows" } }], "value": "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump" },
+      { "rules": [{ "action": "allow", "os": { "arch": "x86" } }], "value": "-Xss1M" },
+      "-Djava.library.path=${natives_directory}",
+      "-Djna.tmpdir=${natives_directory}",
+      "-Dminecraft.launcher.brand=${launcher_name}",
+      "-Dminecraft.launcher.version=${launcher_version}",
+      "-cp", "${classpath}"
+    ]
+  },
+  "libraries": [
+    { "name": "com.mojang:brigadier:1.3.10", "downloads": { "artifact": { "path": "com/mojang/brigadier/1.3.10/brigadier-1.3.10.jar", "sha1": "c1", "size": 10, "url": "https://libraries.minecraft.net/com/mojang/brigadier/1.3.10/brigadier-1.3.10.jar" } } },
+    { "name": "org.ow2.asm:asm:9.6", "downloads": { "artifact": { "path": "org/ow2/asm/asm/9.6/asm-9.6.jar", "sha1": "c2", "size": 10, "url": "https://libraries.minecraft.net/org/ow2/asm/asm/9.6/asm-9.6.jar" } } },
+    { "name": "org.lwjgl:lwjgl:3.3.3", "downloads": { "artifact": { "path": "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar", "sha1": "c3", "size": 10, "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar" } } },
+    { "name": "org.lwjgl:lwjgl:3.3.3:natives-linux", "downloads": { "artifact": { "path": "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-linux.jar", "sha1": "n1", "size": 10, "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-linux.jar" } }, "rules": [{ "action": "allow", "os": { "name": "linux" } }] },
+    { "name": "org.lwjgl:lwjgl:3.3.3:natives-windows", "downloads": { "artifact": { "path": "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-windows.jar", "sha1": "n2", "size": 10, "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-windows.jar" } }, "rules": [{ "action": "allow", "os": { "name": "windows" } }] },
+    { "name": "org.lwjgl:lwjgl:3.3.3:natives-windows-arm64", "downloads": { "artifact": { "path": "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-windows-arm64.jar", "sha1": "n3", "size": 10, "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-windows-arm64.jar" } }, "rules": [{ "action": "allow", "os": { "name": "windows" } }] },
+    { "name": "org.lwjgl:lwjgl:3.3.3:natives-windows-x86", "downloads": { "artifact": { "path": "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-windows-x86.jar", "sha1": "n4", "size": 10, "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-windows-x86.jar" } }, "rules": [{ "action": "allow", "os": { "name": "windows" } }] },
+    { "name": "org.lwjgl:lwjgl:3.3.3:natives-macos-arm64", "downloads": { "artifact": { "path": "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-macos-arm64.jar", "sha1": "n5", "size": 10, "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-macos-arm64.jar" } }, "rules": [{ "action": "allow", "os": { "name": "osx" } }] },
+    { "name": "org.lwjgl:lwjgl:3.3.3:natives-macos", "downloads": { "artifact": { "path": "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-macos.jar", "sha1": "n6", "size": 10, "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-macos.jar" } }, "rules": [{ "action": "allow", "os": { "name": "osx" } }] }
+  ]
+}

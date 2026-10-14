@@ -60,3 +60,39 @@
   transition-duration: 0.001ms !important;
 }
 .compact { --page-pad: 24px; }
+
+/* ---- Home scene (GPU-composited layers; see components/shell/Background.tsx) ---- */
+.scene-layer {
+  position: absolute;
+  inset: -24px -40px;
+  background-size: cover;
+  background-position: center 70%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  will-change: transform;
+  transition: transform 300ms var(--ease);
+}
+.scene-drift {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(200% + 80px);
+  background-size: 50% 100%;
+  background-repeat: repeat-x;
+  image-rendering: pixelated;
+  will-change: transform;
+  animation: scene-drift 180s linear infinite;
+}
+@keyframes scene-drift { to { transform: translate3d(-50%, 0, 0); } }
+.scene-character {
+  position: absolute;
+  right: 18%;
+  bottom: 14%;
+  width: clamp(72px, 15vh, 140px);
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+.scene-character img { width: 400%; height: 100%; max-width: none; image-rendering: pixelated; will-change: transform; }
+.scene-paused .scene-drift { animation-play-state: paused; }
+/* No GPU compositor: blur behind animated content is re-rasterised every frame, so use solid surfaces. */
+.lite .glass { background: color-mix(in srgb, var(--bg-2) 92%, transparent); backdrop-filter: none; }
+.reduce-motion .scene-layer { transition: none; transform: none !important; }

@@ -1,40 +1,55 @@
 appId: com.lifea.launcher
 productName: LifeaLauncher
-artifactName: ${productName}-Setup_${version}.${ext}
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+copyright: Copyright © LifeaLauncher contributors
 directories:
   output: release
   buildResources: build
+asar: true
+compression: maximum
+# Only the built bundles and their runtime deps ship. Renderer deps are bundled by Vite (devDependencies).
 files:
   - dist/**/*
+  - '!dist/stats.html'
   - dist-electron/**/*
-  - public/**/*
+  - '!dist-electron/**/*.map'
   - package.json
-asarUnpack:
-  - public/fonts/**
-  - public/scenes/**
-  - public/sprites/**
-  - public/skins/**
-  - public/icons/**
+  - build/icon.png
+extraResources:
+  # Built lifea-core jars (CI copies mod/build/libs/*.jar here before packaging). Optional.
+  - from: resources/lifea-core
+    to: lifea-core
+    filter: ['*.jar']
+publish:
+  provider: github
+  owner: nafehawan
+  repo: lifealauncher
 win:
   target:
-    - nsis
+    - target: nsis
+      arch: [x64, arm64]
   icon: build/icon.ico
 nsis:
   oneClick: false
   perMachine: false
+  allowElevation: false
   allowToChangeInstallationDirectory: true
-  allowElevation: true
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   shortcutName: LifeaLauncher
   createDesktopShortcut: true
   createStartMenuShortcut: true
   menuCategory: Games
+  deleteAppDataOnUninstall: false
 mac:
   target:
-    - dmg
-  icon: build/icon.icns
+    - target: dmg
+      arch: [universal]
+  category: public.app-category.games
+  icon: build/icon.png
+  hardenedRuntime: true
 linux:
   target:
     - AppImage
+  category: Game
   icon: build/icon.png

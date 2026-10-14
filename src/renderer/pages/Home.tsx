@@ -15,6 +15,7 @@ import { CrashBanner } from '../components/CrashBanner';
 import { InstanceIcon } from '../components/InstanceIcon';
 import { ServerCard } from '../components/ServerCard';
 import { Button, Chip, Skeleton } from '../components/ui/core';
+import { useAppInfo } from '../hooks/useAppInfo';
 
 function CharacterPill({ value, onChange }: { value: CharacterAnim; onChange: (a: CharacterAnim) => void }) {
   const [visible, setVisible] = useState(true);
@@ -54,10 +55,11 @@ export default function Home() {
   const news = useQuery({ queryKey: ['social', 'news'], queryFn: () => call('social:news'), staleTime: 600_000 });
   const worlds = useQuery({ queryKey: ['worlds', selected?.id], queryFn: () => call('instances:worlds', selected!.id), enabled: !!selected, staleTime: 60_000 });
   const [anim, setAnim] = useState<CharacterAnim>('idle');
+  const info = useAppInfo();
 
   return (
     <section className="relative h-full min-h-[600px] overflow-hidden">
-      <Background theme={settings.theme} animate={settings.animatedBackground} particles={settings.particles} speed={100} character={anim} paused={gameRunning} />
+      <Background theme={settings.theme} animate={settings.animatedBackground} particles={settings.particles} character={anim} paused={gameRunning} lite={info ? !info.gpuCompositing : true} />
       <div className="absolute inset-0 bg-gradient-to-r from-bg0/90 via-bg0/55 to-transparent pointer-events-none" />
       <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg0/80 to-transparent pointer-events-none" />
 

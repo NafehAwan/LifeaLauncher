@@ -17,17 +17,23 @@ test('boots, exposes the bridge, renders every route, persists settings', async 
   expect(page.url()).toMatch(/^app:\/\/lifea\//);
   expect(await page.evaluate(() => typeof (window as unknown as { lifea?: unknown }).lifea)).toBe('object');
 
-  // Background canvas has loaded its WebP layers and drawn something that is not plain black.
-  const canvas = page.getByTestId('background');
-  await expect(canvas).toHaveAttribute('data-ready', /[1-9]/, { timeout: 10_000 });
-  const drawn = await canvas.evaluate((c: HTMLCanvasElement) => {
+  // Background scene: every WebP layer loaded and decoded (agent-5 showed a black screen here).
+  const bg = page.getByTestId('background');
+  const layers = await bg.getAttribute('data-layers');
+  await expect(bg).toHaveAttribute('data-ready', layers!, { timeout: 10_000 });
+  const lit = await page.evaluate(async () => {
+    const el = document.querySelector('.scene-layer') as HTMLElement;
+    const url = getComputedStyle(el).backgroundImage.slice(5, -2);
+    const bmp = await createImageBitmap(await (await fetch(url)).blob());
+    const c = new OffscreenCanvas(bmp.width, bmp.height);
     const ctx = c.getContext('2d')!;
-    const d = ctx.getImageData(0, 0, c.width, c.height).data;
-    let lit = 0;
-    for (let i = 0; i < d.length; i += 4 * 97) if (d[i] + d[i + 1] + d[i + 2] > 60) lit++;
-    return lit;
+    ctx.drawImage(bmp, 0, 0);
+    const d = ctx.getImageData(0, 0, bmp.width, bmp.height).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4 * 97) if (d[i] + d[i + 1] + d[i + 2] > 60) n++;
+    return n;
   });
-  expect(drawn).toBeGreaterThan(50);
+  expect(lit).toBeGreaterThan(50);
 
   // Built-in profiles were seeded on first run.
   await expect(page.locator('h1').first()).toContainText(/Lifea/);
@@ -43,7 +49,7 @@ test('boots, exposes the bridge, renders every route, persists settings', async 
   await page.locator('[data-theme-id="ember_night"]').click();
   await page.evaluate(() => (location.hash = '#/'));
   await expect(page.getByTestId('background')).toHaveAttribute('data-theme', 'ember_night');
-  await expect(page.getByTestId('background')).toHaveAttribute('data-ready', /[1-9]/, { timeout: 10_000 });
+  await expect(page.getByTestId('background')).toHaveAttribute('data-ready', '5', { timeout: 10_000 });
 
   // Create an offline account through the UI.
   await page.getByRole('button', { name: 'Account', exact: true }).click();

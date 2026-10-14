@@ -8,6 +8,7 @@ import { useLaunch } from './stores/launch';
 import { useLogs } from './stores/logs';
 import { toast } from './stores/toasts';
 import { useLiveInvalidation } from './hooks/queries';
+import { useAppInfo } from './hooks/useAppInfo';
 import { TitleBar } from './components/shell/TitleBar';
 import { IconRail } from './components/shell/IconRail';
 import { FriendsDrawer } from './components/shell/FriendsDrawer';
@@ -78,6 +79,10 @@ export function App() {
   const loaded = useSettings((s) => s.loaded);
   const location = useLocation();
   useLiveInvalidation(qc);
+  const info = useAppInfo();
+  useEffect(() => {
+    if (info) document.documentElement.classList.toggle('lite', !info.gpuCompositing);
+  }, [info]);
 
   useEffect(() => {
     void (async () => {

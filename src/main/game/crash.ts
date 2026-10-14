@@ -74,7 +74,7 @@ export function parseLevel(line: string): LogLevel {
 /** Strip log4j XML wrappers so the console shows readable text. */
 export function cleanLogLine(line: string): string | null {
   if (/^\s*<\/?log4j:(Event|Throwable)/.test(line) && !line.includes('<![CDATA[')) return null;
-  const cdata = line.match(/<!\[CDATA\[(.*?)(\]\]>)?$/);
+  const cdata = line.match(/<!\[CDATA\[(.*?)(?:\]\]>.*)?$/);
   if (cdata) return cdata[1];
   if (/^\s*\]\]>/.test(line) || /^\s*<\/log4j:/.test(line)) return null;
   return line;
