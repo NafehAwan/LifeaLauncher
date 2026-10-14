@@ -39,7 +39,10 @@ jobs:
         with: { name: lifea-core, path: resources/lifea-core }
       - name: Build installers (never committed to git)
         shell: bash
-        run: npm run build && npx electron-builder --publish never
+        run: |
+          # An unset secret arrives as "", which electron-builder reads as a certificate path.
+          if [ -z "$CSC_LINK" ]; then unset CSC_LINK CSC_KEY_PASSWORD; fi
+          npm run build && npx electron-builder --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           # Optional: set these repository secrets to sign installers / enable Microsoft login.
@@ -63,6 +66,8 @@ jobs:
   # A manual run tags the current commit v<package.json version>; a tag push uses that tag.
   release:
     needs: installers
+    # Publish whatever built, so one OS failing never hides the others.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +86,7 @@ jobs:
           name: LifeaLauncher ${{ steps.tag.outputs.name }}
           make_latest: 'true'
           generate_release_notes: true
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false
           files: |
             release/*.exe
             release/*.dmg
