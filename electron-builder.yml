@@ -24,6 +24,7 @@ publish:
   provider: github
   owner: nafehawan
   repo: lifealauncher
+  releaseType: release
 win:
   target:
     - target: nsis
