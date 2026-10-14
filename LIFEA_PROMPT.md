@@ -176,7 +176,8 @@ Test: the 1.21.4 classpath ends with `versions/1.21.4/1.21.4.jar`.
   `https://libraries.minecraft.net/`.
 - Legacy natives: `natives[os]` (replace `${arch}` with 32/64) → `downloads.classifiers[key]`.
 - Modern natives (`…:natives-windows`, `-arm64`, `-x86`): keep only the one matching `process.arch`.
-- Extract natives in a worker thread (respect `extract.exclude`, always skip `META-INF/`) to `versions/<id>/natives/`.
+- Extract natives off the main thread (a streaming unzip such as `yauzl`, which inflates in libuv's threadpool, or a
+  `worker_threads` worker). Respect `extract.exclude` and always skip `META-INF/`. Extract to `versions/<id>/natives/`.
   Both `${natives_directory}` and `-Djava.library.path` point there.
 
 **Assets (P1-7):**

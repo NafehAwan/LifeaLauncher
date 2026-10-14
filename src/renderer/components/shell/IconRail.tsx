@@ -18,7 +18,7 @@ const NAV: { to: string; label: string; icon: LucideIcon }[] = [
   { to: ROUTES.console, label: 'Console', icon: SquareTerminal },
 ];
 
-function RailLink({ to, label, icon: Icon, badge }: { to: string; label: string; icon: LucideIcon; badge?: boolean }) {
+function RailLink({ to, label, icon: Icon, badge }: { to: string; label: string; icon: LucideIcon; badge?: 'ok' | 'error' }) {
   return (
     <Tooltip label={label}>
       <NavLink
@@ -36,7 +36,7 @@ function RailLink({ to, label, icon: Icon, badge }: { to: string; label: string;
           <>
             {isActive && <span className="absolute -left-3 top-2 bottom-2 w-[3px] rounded-r bg-accent" />}
             <Icon className="w-[18px] h-[18px]" strokeWidth={1.75} />
-            {badge && <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-success ring-2 ring-bg1" />}
+            {badge && <span className={cn('absolute top-2 right-2.5 w-2 h-2 rounded-full ring-2 ring-bg1', badge === 'error' ? 'bg-danger' : 'bg-success')} />}
           </>
         )}
       </NavLink>
@@ -50,7 +50,7 @@ export function IconRail() {
   return (
     <nav aria-label="Main" className="w-[72px] shrink-0 bg-bg1 border-r border-line flex flex-col items-center py-3 gap-1 relative z-30">
       {NAV.map((n) => (
-        <RailLink key={n.to} {...n} badge={(n.to === ROUTES.console && (running || crashed)) || undefined} />
+        <RailLink key={n.to} {...n} badge={n.to === ROUTES.console ? (crashed ? 'error' : running ? 'ok' : undefined) : undefined} />
       ))}
       <div className="flex-1" />
       <RailLink to={ROUTES.settings} label="Settings" icon={Settings} />

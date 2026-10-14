@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mod:
+    name: lifea-core mod
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew build --no-daemon
+        working-directory: mod
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lifea-core
+          path: mod/build/libs/lifea-core-*+mc*.jar
+          if-no-files-found: error
+
+  server:
+    name: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: server/package-lock.json }
+      - run: npm ci
+        working-directory: server
+      - run: npm run check
+        working-directory: server
+
+  launcher:
+    name: launcher (${{ matrix.os }})
+    needs: mod
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm ci
+        working-directory: server
+      - name: Bundle lifea-core
+        uses: actions/download-artifact@v4
+        with: { name: lifea-core, path: resources/lifea-core }
+      - run: npm run check
+      - name: Package (unpacked)
+        run: npm run pack
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+      - name: E2E against the packaged app (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          LIFEA_E2E_EXECUTABLE=$PWD/release/linux-unpacked/lifealauncher xvfb-run -a npx playwright test
+      - name: E2E against the packaged app (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:LIFEA_E2E_EXECUTABLE = "$PWD\release\win-unpacked\LifeaLauncher.exe"
+          npx playwright test smoke social
+      - name: E2E against the packaged app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          LIFEA_E2E_EXECUTABLE="$(ls -d $PWD/release/mac*/LifeaLauncher.app)/Contents/MacOS/LifeaLauncher" npx playwright test smoke social
+
+  launch-integration:
+    name: real Minecraft launch (Linux, vanilla + Fabric)
+    needs: launcher
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npm ci --prefix server
+      - run: sudo apt-get update && sudo apt-get install -y xvfb mesa-utils
+      - run: npm run build
+      - name: Launch vanilla 1.21.4 and Fabric 1.21.4 to the title screen
+        run: LIFEA_LAUNCH_IT=1 xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test launch
+        timeout-minutes: 30

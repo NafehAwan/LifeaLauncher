@@ -141,3 +141,36 @@ field name fixed, Fabric would fail.
 3. P0-6 → P0-10 (vanilla + Fabric 1.21.x actually launch), with bundled Java 21.
 4. P1-2, P1-6, P1-7 (installing mods + reliable launch).
 5. Add an Electron smoke test in CI that boots the packaged app and asserts `window.lifea` exists.
+
+---
+
+## Status after the rebuild (branch `ccr-820e57bd-y2ipkk`)
+
+**Verified** means a test in this repo checks it. Launching Minecraft and talking to Mojang, Modrinth or Fabric could
+not be tested in the build sandbox (those hosts were blocked). Those rows are covered by unit tests against
+hand-written fixtures, plus an on-demand CI job (`launch-integration`) that launches vanilla and Fabric for real.
+
+| ID | Status | How it is verified |
+|---|---|---|
+| P0-1 settings recursion | **Fixed.** Settings live at a fixed userData path and are cached. | `test/io.test.ts` (empty dir, corrupt file, agent-5 file), e2e boots |
+| P0-2 ESM `__dirname` | **Fixed.** Main is emitted as CommonJS `.cjs` (`"type": "module"` removed). | e2e boots the **packaged** app |
+| P0-3 ESM preload | **Fixed.** Preload is `.cjs` and sandboxed; a missing bridge shows a diagnostic screen. | e2e asserts `typeof window.lifea === 'object'` |
+| P0-4 wrong `loadFile` path | **Fixed.** The renderer is served via `app://lifea/` from `dist/`. | e2e asserts the URL and that every route renders |
+| P0-5 absolute asset paths | **Fixed.** `asset()` helper is used everywhere; `app://` serves wardrobe and screenshots. | e2e checks the background layers load |
+| P0-6 no client jar | **Fixed.** Client jar is downloaded (SHA-1) and placed last on the classpath. | `engine.test.ts`; live: `launch-integration` |
+| P0-7 no Java matching | **Fixed.** Managed runtimes come from the Mojang manifest, with Adoptium as fallback. | parser tests; live: CI |
+| P0-8 natives | **Fixed.** Legacy classifier and modern natives are picked by arch, then extracted. | `engine.test.ts` (win x64/arm64, mac arm64, 1.8.9) |
+| P0-9 `arguments.jvm` ignored | **Fixed.** Full rules and templates are applied; shell-style JVM-arg parsing. | `engine.test.ts` (no unknown vars, macOS flag, quick play) |
+| P0-10 Fabric broken | **Fixed.** Uses `profile/json` and an `inheritsFrom` merge. Quilt is the same; Forge/NeoForge use the official installer, headless. | `engine.test.ts`, `io.test.ts` |
+| P1-1 theme IDs | **Fixed.** One ID set in `shared/constants.ts`, and old settings are migrated. | e2e switches theme and checks it persists |
+| P1-2 wrong mod file | **Fixed.** Installs filter by version and loader, resolve required dependencies, and offer updates by hash. | `helpers.test.ts` |
+| P1-3 folder button | **Fixed.** `instances:open-folder(id, sub)` resolves the path in main. | code |
+| P1-4 toggles / tabs | **Fixed.** `.disabled` rename, real resource-pack/shader/world tabs, drag-and-drop. | code |
+| P1-5 wardrobe | **Fixed.** Uses `app://wardrobe`, PNG size validation, real skin/cape preview, skin upload. | `helpers.test.ts` (PNG checks) |
+| P1-6 double launch / cancel | **Fixed.** One job per profile, `AbortSignal` in every phase, `taskkill /T` on Windows. | `io.test.ts` (cancel) |
+| P1-7 slow downloads | **Fixed.** 24-way pool, streamed SHA-1, progress throttled to 100 ms. | `io.test.ts` |
+| P1-8 hard-coded username | **Fixed.** Offline + Microsoft accounts with an account switcher. | e2e adds an offline account |
+| P1-9 fake friends | **Fixed.** Real backend with presence, requests and DMs. | `server/test`, `e2e/social.spec.ts` |
+| P1-10 modpack slug | **Fixed.** Wizard step removed; Browse → Modpacks → Install. | code |
+| P2 items | **Fixed.** Selected profile, live version list, SRV ping and MOTD, `servers.dat`, `setZoomFactor`, one progress UI, dead buttons removed, `user_type`. | tests + e2e routes |
+| P3 hygiene | **Fixed.** `.exe` no longer committed, CI on 3 OSes, tests + lint, dead code and duplicate docs removed. | `.github/workflows` |

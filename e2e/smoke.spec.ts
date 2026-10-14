@@ -51,6 +51,15 @@ test('boots, exposes the bridge, renders every route, persists settings', async 
   await expect(page.getByTestId('background')).toHaveAttribute('data-theme', 'ember_night');
   await expect(page.getByTestId('background')).toHaveAttribute('data-ready', '5', { timeout: 10_000 });
 
+  // IPC arity: optional trailing arguments may be omitted (PLAY calls launch:start with just the id).
+  const launchResult = await page.evaluate(async () => {
+    const l = (window as unknown as { lifea: { invoke: (c: string, ...a: unknown[]) => Promise<unknown> } }).lifea;
+    await l.invoke('launch:start', 'no-such-profile');
+    await new Promise((r) => setTimeout(r, 300));
+    return ((await l.invoke('launch:states')) as { instanceId: string; status: string; error?: string }[]).find((s) => s.instanceId === 'no-such-profile');
+  });
+  expect(launchResult).toMatchObject({ status: 'crashed', error: 'Profile not found.' });
+
   // Create an offline account through the UI.
   await page.getByRole('button', { name: 'Account', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Add account' }).click();

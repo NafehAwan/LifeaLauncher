@@ -105,7 +105,10 @@ export function App() {
       for (const st of Object.values(s.states)) {
         const before = prev[st.instanceId];
         if (before?.status === st.status) continue;
-        if (st.status === 'crashed' && st.crash) toast.error(st.crash.title, st.crash.detail);
+        // Home and the profile page show the crash banner inline; toast only when the user is elsewhere.
+        const hash = window.location.hash.replace(/^#/, '') || '/';
+        const inline = hash === '/' || hash.startsWith(`/instance/${st.instanceId}`);
+        if (st.status === 'crashed' && st.crash && !inline) toast.error(st.crash.title, st.crash.detail);
       }
       prev = s.states;
     });

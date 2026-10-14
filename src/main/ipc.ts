@@ -76,8 +76,12 @@ function handle<C extends InvokeChannel>(
   schema: z.ZodTypeAny,
   fn: (args: InvokeArgs<C>, e: IpcMainInvokeEvent) => Promise<InvokeResult<C>> | InvokeResult<C>,
 ): void {
+  // z.tuple() requires every position even when trailing ones are optional, so pad omitted trailing args.
+  const arity = schema instanceof z.ZodTuple ? (schema.items as unknown[]).length : 0;
   ipcMain.handle(channel, async (e, ...raw: unknown[]) => {
     if (!trusted(e)) throw new Error('Untrusted sender');
+    if (raw.length > arity && arity > 0) throw new Error(`Too many arguments for ${channel}`);
+    while (raw.length < arity) raw.push(undefined);
     const parsed = schema.safeParse(raw);
     if (!parsed.success) throw new Error(`Invalid request for ${channel}: ${parsed.error.issues.map((i) => i.message).join(', ')}`);
     return fn(parsed.data as InvokeArgs<C>, e);

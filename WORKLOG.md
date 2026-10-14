@@ -195,3 +195,34 @@ Stage Summary:
 - Checks: renderer and Electron TypeScript checks passed; Vite renderer, main, and preload production bundles passed.
 - Added `.github/workflows/windows-installer.yml` to build the NSIS `.exe` on GitHub's Windows runner and upload it as a 30-day Actions artifact.
 - The local installer build was stopped at the user's request; final packaging and artifact confirmation are delegated to GitHub Actions.
+
+## Rebuild (fix + redesign + performance + Lunar/Dawn features)
+- Single build prompt: `LIFEA_PROMPT.md`. Bug status table: bottom of `BUG_REPORT.md`.
+- Boot: main/preload emitted as CommonJS, `app://` protocol, settings at a fixed userData path, window created before
+  bootstrap, typed and zod-validated IPC behind a whitelisting sandboxed preload.
+- Launch engine (`src/main/game`): manifest/`inheritsFrom` resolution, client jar, arch-aware natives, pooled streamed
+  downloads, managed Java, full argument templating, Fabric/Quilt profile JSON, headless Forge/NeoForge installer,
+  cancellable job state machine, crash diagnosis, launcher hide/restore.
+- Features: Microsoft (PKCE → XBL → XSTS → Minecraft) and offline accounts, Modrinth installs with dependencies and
+  updates, Optimize pack, `.mrpack` import/export, servers with SRV/MOTD/`servers.dat`, wardrobe, screenshots, Boost
+  with real FPS from the mod, auto-update.
+- UI: full blood-red redesign (title bar, icon rail, command palette, friends drawer, morphing PLAY), lazy routes,
+  virtualised console.
+- Backend (`server/`): Fastify, Postgres or SQLite, auth via Minecraft token → JWT, friends/presence/DMs/cosmetics/news.
+- Mod (`mod/`): lifea-core for 1.21.4. HUD editor + 16 HUD elements, zoom, freelook, toggle sprint, fullbright,
+  crosshair, waypoints, capes, launcher bridge, server opt-out channel.
+
+Measured on the packaged Linux build under xvfb (software GL, no GPU):
+
+| Metric | Budget | Result |
+|---|---|---|
+| Window visible | < 800 ms | 508–666 ms |
+| Shell interactive | < 1.5 s | 742–927 ms |
+| Idle CPU, Home | < 3 % | 2.6 % (was 93 % before the scene rework) |
+| Idle CPU, other pages | ~0 % | 0–0.25 % |
+| Initial JS (gzip) | < 250 KB | ≈ 115 KB (index 33 + react 54 + query 12 + CSS 16) |
+| app.asar | — | 5 MB |
+| Working set, all processes | < 250 MB | 520–550 MB under software GL (the GPU process dominates; not measurable on a GPU here) |
+
+Tests: 59 unit, 7 backend, and e2e smoke/perf/social against the packaged app, all passing. The real Minecraft launch
+and the mod compile run in CI only (Mojang, Fabric and Modrinth hosts were blocked in the sandbox).

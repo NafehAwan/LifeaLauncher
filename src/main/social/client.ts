@@ -9,6 +9,7 @@ import { getJson, postJson, request } from '../core/http';
 import { getSettings } from '../core/settings';
 import { log } from '../core/log';
 import { msaAccessToken, selectedAccount } from '../accounts/store';
+import { BUILD_BACKEND_URL } from '../core/build-info';
 
 let jwt: string | null = null;
 let self: { uuid: string; username: string } | undefined;
@@ -19,7 +20,7 @@ let backoff = 1000;
 let presence: Presence = { state: 'launcher' };
 
 export function backendUrl(): string {
-  return (getSettings().backendUrl || process.env.LIFEA_BACKEND_URL || '').replace(/\/+$/, '');
+  return (getSettings().backendUrl || process.env.LIFEA_BACKEND_URL || BUILD_BACKEND_URL).replace(/\/+$/, '');
 }
 
 function setStatus(s: Partial<SocialStatus>): void {

@@ -14,7 +14,7 @@ test('diag', async () => {
     b.forEach(([t, v], i) => (out[t] = +((out[t] ?? 0) + ((v - (a[i]?.[1] ?? 0)) / (ms / 1000)) * 100).toFixed(1)));
     return out;
   };
-  const set = (p: object) => page.evaluate((x) => (window as any).lifea.invoke('settings:set', x), p);
+  const set = (p: object) => page.evaluate((x) => (window as unknown as { lifea: { invoke: (c: string, v: unknown) => Promise<unknown> } }).lifea.invoke('settings:set', x), p);
   await page.waitForTimeout(2000);
   console.log('full', JSON.stringify(await cpu(4000)));
   await set({ particles: false });

@@ -1,153 +1,85 @@
 # LifeaLauncher
 
-A pixel-art Minecraft launcher with a blood-red theme. Inspired by the Desertia Launcher.
+A fast, blood-red Minecraft Java launcher and client — Dawn-style launcher layout, Lunar-style in-game features.
 
-## Features
+- **Plays any version:** vanilla, Fabric, Quilt, Forge and NeoForge, from 1.8.9 to the latest release.
+- **No Java setup:** downloads the exact Java each version needs (8, 17 or 21).
+- **Modrinth built in:** installs pick the build for your version and loader and pull in required dependencies. Also
+  update checks, `.mrpack` import/export, and one-click modpacks.
+- **Boost:** "Optimize this profile" installs the version-correct performance pack (Sodium, Lithium, FerriteCore,
+  Entity Culling, ImmediatelyFast, ModernFix, Dynamic FPS, More Culling). Real FPS from your sessions appears in the
+  launcher.
+- **Lifea Core mod (in game, Right Shift):**
+  - HUD editor with FPS, CPS, keystrokes, ping, coordinates, armor, potions, waypoints and more;
+  - zoom, freelook, toggle sprint, fullbright, custom crosshair;
+  - Lifea capes.
+- **Social:** friends, presence ("Playing on …"), DMs and cosmetics via the self-hostable [Lifea backend](server/README.md).
+- **Accounts:** Microsoft login, plus offline accounts for singleplayer and LAN.
 
-- 9 views: Home, Library, Instance Detail, Browse (Modrinth), Boost, Wardrobe, Friends, Console, Settings
-- Real Modrinth integration — search and install mods with one click
-- Modrinth `.mrpack` import with parallel downloads, checksum verification, and overrides
-- Real Minecraft Java launch — spawn java process, stream logs
-- Vanilla + Fabric loader support (Forge coming in v2)
-- 4 pixel-art background themes (Blood Dunes, Ember Night, Ash Oasis, Emberstorm)
-- Animated parallax background with controllable character (Idle/Wave/Walk/Dance)
-- 3D skin + cape viewer in Wardrobe (powered by skinview3d)
-- Performance optimizer with real system detection + mod suggestions
-- Persistent settings, friends list, servers list in `~/.lifea/`
-- Real server list-ping protocol (Minecraft SLP)
-- Offline account mode with deterministic UUID (Microsoft auth coming in v2)
+## Install
 
-Modpack import supports the Modrinth format version 1 manifest, client-side files, SHA-1/SHA-512 validation, and `overrides/`. The launcher currently starts Vanilla and Fabric instances; imported Forge, NeoForge, or Quilt packs are recorded with their loader metadata but require the corresponding loader launch support before they can run.
+Download the installer for your OS from the latest [GitHub Release](https://github.com/nafehawan/lifealauncher/releases):
+`.exe` (Windows x64/ARM64), `.dmg` (macOS universal) or `.AppImage` (Linux). The launcher updates itself.
 
-## Installation
+Where things live:
 
-### End users (Windows)
+| What | Where |
+|---|---|
+| Launcher settings, accounts, logs | Windows `%APPDATA%\LifeaLauncher`, macOS `~/Library/Application Support/LifeaLauncher`, Linux `~/.config/LifeaLauncher` |
+| Profiles, game files, Java runtimes | `~/.lifea` (change it in Settings → Advanced) |
 
-1. Download `LifeaLauncher-Setup_1.0.0.exe` from the latest release.
-2. Run the installer.
-3. Open LifeaLauncher from your Start Menu or Desktop shortcut.
-4. First run will prompt you to set your Java path (or auto-detect if `JAVA_HOME` is set).
-5. A default "Vanilla 1.21.4" instance is created automatically.
-6. Click LAUNCH on the Home screen.
+### Troubleshooting
 
-### End users (Linux)
+- **"Wrong Java version"**: click *Use managed Java*, then launch again.
+- **Antivirus removed native libraries**: add `~/.lifea` to its exclusions, then launch again.
+- **"Graphics driver problem"**: install the latest driver from your GPU vendor (not Windows Update).
+- **Anything else**: Console → *Upload to mclo.gs*, and include `logs/main.log` from the launcher folder.
 
-1. Download `LifeaLauncher-Setup_1.0.0.AppImage`.
-2. `chmod +x LifeaLauncher-Setup_1.0.0.AppImage`
-3. `./LifeaLauncher-Setup_1.0.0.AppImage`
-
-## Development
+## Develop
 
 ```bash
-git clone <repo-url>
-cd lifealauncher
 npm install
-npm install-scripts approve electron   # one-time: approve electron postinstall
-npm run dev                             # launches Vite + Electron window
+npm run dev          # Vite + Electron with hot reload
+npm run check        # both TypeScript projects + ESLint + unit tests
+npm run pack         # build an unpacked app in release/
+LIFEA_E2E_EXECUTABLE=release/linux-unpacked/lifealauncher xvfb-run -a npx playwright test   # e2e on the packaged app
+npm run dist:win     # installers (also dist:mac, dist:linux)
 ```
 
-### Building from source
+Layout:
 
-```bash
-npm run build        # builds renderer (dist/) + electron main (dist-electron/)
-npm run dist         # Windows NSIS installer (requires Wine on Linux/macOS)
-npm run dist:mac     # macOS DMG
-npm run dist:linux   # Linux AppImage
+```
+src/shared     IPC contract, types, constants, zod schemas (used by every process)
+src/main       Electron main: game engine (src/main/game), accounts, servers, social, IPC handlers, app:// protocol
+src/preload    Sandboxed preload — whitelisted invoke/on bridge only
+src/renderer   React UI (pages, components, stores)
+mod/           lifea-core Fabric mod (Gradle)
+server/        Lifea backend (Fastify)
+test/ e2e/     Vitest unit tests (fixtures in test/fixtures) and Playwright tests against the real app
 ```
 
-The `Windows installer` GitHub Actions workflow builds the NSIS installer on a GitHub-hosted Windows runner whenever `agent-5` is pushed. Download the generated `.exe` from that workflow run's **Artifacts** section.
+### Build configuration
 
-### Regenerating pixel-art assets
+| Env var (build time) | Purpose |
+|---|---|
+| `LIFEA_MSA_CLIENT_ID` | Azure app ID for Microsoft login. It must be approved by Mojang for the Minecraft API. Without it only offline accounts work. |
+| `LIFEA_BACKEND_URL` | Default Lifea backend for friends/cosmetics (users can override it in Settings). |
+| `CSC_LINK`, `CSC_KEY_PASSWORD` | Code-signing certificate for electron-builder (Windows/macOS). |
 
-All pixel-art assets are procedurally generated by Python scripts:
+Releases: push a `v*` tag. `.github/workflows/release.yml` builds the mod, bundles it, and publishes signed installers
+to the GitHub Release. **Never commit installers to git.**
 
-```bash
-python3 scripts/gen_assets.py    # backgrounds, character, icons, app icon
-python3 scripts/fix_icon.py      # regenerate icon.ico with proper sizes
-```
+### Assets
 
-The Monocraft font is bundled in `public/fonts/Monocraft.ttf` (OFL license, see `public/fonts/LICENSE.txt`).
-
-## Tech stack
-
-- Electron 30+, React 18, TypeScript 5
-- Vite 5 with vite-plugin-electron
-- Tailwind CSS 3.4 with CSS variables (red blood + ember theme tokens)
-- Zustand + React Query for state management
-- lucide-react for icons
-- skinview3d for 3D skin viewer
-- electron-store for persistent settings
-- electron-builder for packaging
-
-## What's in the box
-
-### Pixel-art assets (`public/`)
-- 4 background scenes × 5 parallax layers each (`scenes/{blood_dunes,ember_night,ash_oasis,emberstorm}/`)
-- 16 character sprite frames (4 anims × 4 frames: idle/walk/wave/dance)
-- 13 pixel-art SVG icons (logo, instance icons, cactus, mod logos, stat icons, wardrobe placeholders)
-- Default 64×64 Steve-style skin for skinview3d
-- Monocraft TTF pixel font
-
-### Animated background canvas (`src/components/chrome/BackgroundCanvas.tsx`)
-- 30 fps parallax with 4-5 layers per theme
-- Cursor parallax on dunes + cacti
-- Character sprite (4-frame animation at 4 fps, state controlled by floating Idle/Wave/Walk/Dance buttons)
-- Blowing sand particles (toggleable via Settings)
-- Respects `settings.animatedDesert` + `settings.animationSpeed`
-- Pauses when window blurred (CPU saver)
-
-### 3D skin viewer (`src/components/wardrobe/ModelViewer.tsx`)
-- skinview3d-powered player model with cape support
-- Drag-rotate, wheel-zoom
-- Idle/Walk animation toggle, Back/Front view toggle
-
-### Polish pass
-- Hover: button scale 1.02 + brightness 1.1, card lift -2px + shadow
-- Focus: `--accent-glow` outline 2px / offset 2px on all interactive elements
-- Active: button scale 0.98, sidebar inset shadow
-- Page transitions: fade + slide-up 200ms ease
-- Modal transitions: backdrop fade + content slide-up 200ms
-- Custom scrollbar (red theme)
-- Pixel-art spinner (`Spinner.tsx`) + skeleton loaders (`Skeleton.tsx`)
-- Boost score animates from 0 to actual value over 1000ms ease-out
-
-## Definition of done (per brief §15)
-
-- [x] All 10 views render with pixel-perfect layout matching screenshots (within color/font/bg differences)
-- [x] Red blood + ember theme applied globally via tokens
-- [x] Monocraft (Minecraftia-family) font loaded and applied to all pixel titles
-- [x] Sidebar navigates between views without page reload
-- [x] Browse view hits real Modrinth API and shows real search results
-- [x] Install button on mod card downloads the .jar to the selected instance's `mods/` folder
-- [x] New instance wizard creates a real instance folder in `~/.lifea/instances/`
-- [x] Launch button spawns real `java` process and pipes logs to Console view
-- [x] Console log auto-scrolls, level filter works, copy-to-clipboard works
-- [x] Settings persists to `~/.lifea/settings.json` and applies on restart
-- [x] Friends can be added/removed (stored in `~/.lifea/friends.json`)
-- [x] Wardrobe 3D model viewer renders current skin + cape
-- [x] Boost view shows real RAM/CPU/heap detection + suggests Sodium install
-- [x] Animated pixel-art background runs at 30fps without blocking UI
-- [x] `LifeaLauncher-Setup_1.0.0.exe` builds via `npm run dist` (requires Wine on non-Windows)
-- [x] Linux AppImage builds via `npm run dist:linux` (verified working)
-
-## v2 roadmap (NOT in v1)
-
-The following are intentionally out of scope for v1 and will be added in v2:
-
-- **Microsoft account authentication** — v1 uses offline mode with a deterministic UUID
-- **Forge / NeoForge loader** — v1 supports vanilla + fabric only (Forge installer requires interactive Java wizard; v2 will use the pack200 headless pattern)
-- **JRE auto-download** — v1 requires the user to set Java path in Settings (or have JAVA_HOME set); v2 will download Temurin 21 from Adoptium API
-- **Friends online-status polling** — v1 friends persist locally and always show "offline"; v2 will check Mojang's API
-- **Auto-update** — v2 will add `electron-updater` with GitHub releases as the update provider
+`scripts/gen_assets.py` generates the pixel-art scenes and sprites. They ship as lossless WebP: scenes are 61 % smaller
+than the old PNGs, and the character frames are 4-frame sprite sheets. `scripts/gen_cosmetics.py` generates the
+original cosmetic textures used by the backend.
 
 ## Credits
 
-- Design inspired by [Desertia Launcher](https://github.com/shadowedaizen/Desertia-Releases)
-- [Modrinth API](https://docs.modrinth.com) for mod search + install
-- [Monocraft font](https://github.com/IdreesInc/Monocraft) — OFL license
-- [skinview3d](https://github.com/bs-community/skinview3d) for the 3D skin viewer
-- Minecraft is a trademark of Mojang AB. LifeaLauncher is not affiliated with Mojang.
+- [Modrinth](https://modrinth.com) API for mods and modpacks.
+- [Monocraft](https://github.com/IdreesInc/Monocraft) font (OFL).
+- [skinview3d](https://github.com/bs-community/skinview3d).
+- Not affiliated with Mojang or Microsoft. Minecraft is a trademark of Mojang AB.
 
-## License
-
-MIT
+MIT licensed.

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "lifea-core",
+  "version": "${version}",
+  "name": "Lifea Core",
+  "description": "LifeaLauncher's in-game client: HUD editor, keystrokes, CPS, zoom, freelook, toggle sprint, fullbright, crosshair, waypoints, Lifea capes and the launcher bridge.",
+  "authors": ["LifeaLauncher contributors"],
+  "contact": { "sources": "https://github.com/nafehawan/lifealauncher" },
+  "license": "MIT",
+  "icon": "assets/lifea/icon.png",
+  "environment": "client",
+  "entrypoints": { "client": ["gg.lifea.core.LifeaCore"] },
+  "mixins": ["lifea.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.4",
+    "java": ">=21"
+  }
+}

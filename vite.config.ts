@@ -7,6 +7,11 @@ import { visualizer } from 'rollup-plugin-visualizer';
 const alias = { '@': path.resolve(__dirname, 'src'), '@shared': path.resolve(__dirname, 'src/shared') };
 // Runtime deps that must stay as real node_modules (native/optional requires).
 const mainExternal = ['electron', 'ws', 'yauzl', 'electron-updater', 'bufferutil', 'utf-8-validate'];
+// Baked into release builds by CI (repository secrets); a runtime env var of the same name still wins.
+const buildDefines = {
+  __LIFEA_MSA_CLIENT_ID__: JSON.stringify(process.env.LIFEA_MSA_CLIENT_ID ?? ''),
+  __LIFEA_BACKEND_URL__: JSON.stringify(process.env.LIFEA_BACKEND_URL ?? ''),
+};
 
 export default defineConfig(({ mode }) => ({
   base: './',
@@ -17,6 +22,7 @@ export default defineConfig(({ mode }) => ({
         entry: 'src/main/index.ts',
         vite: {
           resolve: { alias },
+          define: buildDefines,
           build: {
             outDir: 'dist-electron/main',
             minify: mode === 'production',

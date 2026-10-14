@@ -3,10 +3,11 @@
  * The interactive login window lives in `msa-window.ts`.
  *
  * NOTE: a new Azure app ID must be approved by Mojang before api.minecraftservices.com accepts its tokens.
- * Configure it with the LIFEA_MSA_CLIENT_ID environment variable (or build-time define).
+ * Configure it with LIFEA_MSA_CLIENT_ID (baked in at build time by CI, or set at runtime).
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { getJson, HttpError, postJson, request } from '../core/http';
+import { BUILD_MSA_CLIENT_ID } from '../core/build-info';
 
 export const MSA = {
   authorize: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize',
@@ -16,7 +17,7 @@ export const MSA = {
 };
 
 export function msaClientId(): string {
-  return process.env.LIFEA_MSA_CLIENT_ID ?? '';
+  return process.env.LIFEA_MSA_CLIENT_ID || BUILD_MSA_CLIENT_ID;
 }
 
 export function pkcePair(): { verifier: string; challenge: string } {

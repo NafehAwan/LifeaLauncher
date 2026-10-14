@@ -24,6 +24,8 @@ export function useLiveInvalidation(qc: QueryClient): void {
         if (p.id) void qc.invalidateQueries({ queryKey: ['content', p.id] });
         void qc.invalidateQueries({ queryKey: ['boost'] });
       }),
+      // Account selection lives in settings; refresh account-dependent UI whenever settings change.
+      on('settings:changed', () => void qc.invalidateQueries({ queryKey: qk.accounts })),
       on('social:event', (ev) => {
         if (ev.type === 'friends-changed' || ev.type === 'presence' || ev.type === 'status') void qc.invalidateQueries({ queryKey: qk.social });
         if (ev.type === 'message') void qc.invalidateQueries({ queryKey: ['social', 'messages'] });
