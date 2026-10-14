@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 12 12" shape-rendering="crispEdges">
+  <rect x="2" y="2" width="8" height="8" fill="#5d0000"/>
+  <rect x="3" y="3" width="6" height="6" fill="#8b0000"/>
+  <rect x="4" y="4" width="4" height="4" fill="#b71c1c"/>
+  <text x="6" y="8" font-family="monospace" font-size="3" fill="#f5e6e6" text-anchor="middle">Li</text>
+</svg>

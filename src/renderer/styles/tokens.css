@@ -1,0 +1,44 @@
+/* Monocraft — pixel font (OFL, see public/fonts/LICENSE.txt). Used only for the wordmark, page titles and percentages. */
+@font-face {
+  font-family: 'Monocraft';
+  src: url('/fonts/Monocraft.ttf') format('truetype');
+  font-display: swap;
+}
+
+:root {
+  --bg-0: #0b0607;
+  --bg-1: #110a0c;
+  --bg-2: #181013;
+  --bg-3: #21151a;
+  --bg-4: #2b1b21;
+  --line: #2e1c22;
+  --line-strong: #3d252d;
+  --text-1: #f6eef0;
+  --text-2: #c4afb4;
+  --text-3: #8a7076;
+  --accent: #e11d2e;
+  --accent-hi: #ff3b4a;
+  --accent-lo: #9b0f1c;
+  --accent-glow: rgba(225, 29, 46, 0.4);
+  --accent-soft: rgba(225, 29, 46, 0.12);
+  --ember: #ff6a2b;
+  --success: #3ddc84;
+  --warning: #ffb020;
+  --danger: #ff4d5e;
+  --info: #5aa9ff;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 4px 14px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px rgba(0, 0, 0, 0.55);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 260ms;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  --font-pixel: 'Monocraft', var(--font-mono);
+  --page-pad: 32px;
+  color-scheme: dark;
+}

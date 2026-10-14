@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "baseUrl": ".",
+    "paths": { "@shared/*": ["src/shared/*"] },
+    "types": ["node"]
+  },
+  "include": ["src/main", "src/preload", "src/shared", "test", "e2e", "vite.config.ts", "vitest.config.ts", "playwright.config.ts", "tailwind.config.ts", "eslint.config.mjs"]
+}

@@ -1,0 +1,40 @@
+appId: com.lifea.launcher
+productName: LifeaLauncher
+artifactName: ${productName}-Setup_${version}.${ext}
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - public/**/*
+  - package.json
+asarUnpack:
+  - public/fonts/**
+  - public/scenes/**
+  - public/sprites/**
+  - public/skins/**
+  - public/icons/**
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  shortcutName: LifeaLauncher
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  menuCategory: Games
+mac:
+  target:
+    - dmg
+  icon: build/icon.icns
+linux:
+  target:
+    - AppImage
+  icon: build/icon.png

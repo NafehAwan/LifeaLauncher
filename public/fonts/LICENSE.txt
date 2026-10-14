@@ -1,0 +1,13 @@
+Monocraft Font — License
+
+Source: https://github.com/IdreesInc/Monocraft
+
+Monocraft is a pixel font inspired by Minecraft's UI font. It is licensed under
+the SIL Open Font License (OFL), which permits free use, modification, and
+redistribution (including in commercial software) as long as the font itself is
+not sold standalone.
+
+Full license text: https://github.com/IdreesInc/Monocraft/blob/master/LICENSE
+
+Minecraft is a trademark of Mojang AB. Monocraft is not affiliated with Mojang.
+LifeaLauncher is not affiliated with Mojang.
