@@ -72,7 +72,7 @@ test/ e2e/     Vitest unit tests (fixtures in test/fixtures) and Playwright test
 | `LIFEA_BACKEND_URL` | Default Lifea backend for friends/cosmetics (users can override it in Settings). |
 | `CSC_LINK`, `CSC_KEY_PASSWORD` | Code-signing certificate for electron-builder (Windows/macOS). |
 
-Releases: push a `v*` tag. `.github/workflows/release.yml` builds the mod, bundles it, and publishes signed installers
+Releases: run the **Release** workflow from the Actions tab (it tags `v<version>`), or push a `v*` tag. `.github/workflows/release.yml` builds the mod, bundles it, and publishes the installers (signed when `CSC_LINK` is set)
 to the GitHub Release. **Never commit installers to git.**
 
 ### Assets

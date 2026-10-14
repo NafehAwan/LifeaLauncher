@@ -37,24 +37,54 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: lifea-core, path: resources/lifea-core }
-      - name: Build installers and publish to the GitHub Release (never committed to git)
+      - name: Build installers (never committed to git)
         shell: bash
-        run: npm run build && npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
+        run: npm run build && npx electron-builder --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           # Optional: set these repository secrets to sign installers / enable Microsoft login.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           LIFEA_MSA_CLIENT_ID: ${{ secrets.LIFEA_MSA_CLIENT_ID }}
           LIFEA_BACKEND_URL: ${{ vars.LIFEA_BACKEND_URL }}
-      - name: Keep installers as a workflow artifact too
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ matrix.os }}
           path: |
             release/*.exe
             release/*.dmg
             release/*.AppImage
-          if-no-files-found: ignore
+            release/*.blockmap
+            release/latest*.yml
+          if-no-files-found: error
           retention-days: 30
+
+  # One job publishes everything, so the three OS builds never race to create the release.
+  # A manual run tags the current commit v<package.json version>; a tag push uses that tag.
+  release:
+    needs: installers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then echo "name=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else echo "name=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/download-artifact@v4
+        with: { pattern: installers-*, path: release, merge-multiple: true }
+      - run: ls -la release
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          name: LifeaLauncher ${{ steps.tag.outputs.name }}
+          make_latest: 'true'
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release/*.exe
+            release/*.dmg
+            release/*.AppImage
+            release/*.blockmap
+            release/latest*.yml
