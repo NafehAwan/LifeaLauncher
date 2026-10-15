@@ -3,9 +3,10 @@
   "productName": "LifeaLauncher",
   "description": "A fast, blood-red Minecraft Java launcher and client.",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "main": "dist-electron/main/index.cjs",
   "author": "LifeaLauncher",
+  "homepage": "https://github.com/nafehawan/lifealauncher",
   "license": "MIT",
   "repository": "https://github.com/nafehawan/lifealauncher",
   "scripts": {

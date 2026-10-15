@@ -25,7 +25,8 @@ Old (agent-5) vs new. Per-page comparisons are in [`docs/design`](docs/design).
 ## Install
 
 Download the installer for your OS from the latest [GitHub Release](https://github.com/nafehawan/lifealauncher/releases):
-`.exe` (Windows x64/ARM64), `.dmg` (macOS universal) or `.AppImage` (Linux). The launcher updates itself.
+`.exe` (Windows x64/ARM64), `.dmg` (macOS universal), `.AppImage` (any Linux) or `.deb` (Debian/Ubuntu:
+`sudo apt install ./LifeaLauncher-*.deb`). The launcher updates itself (Windows, macOS, AppImage).
 
 Where things live:
 

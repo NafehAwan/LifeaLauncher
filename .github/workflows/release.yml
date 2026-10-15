@@ -57,6 +57,7 @@ jobs:
             release/*.exe
             release/*.dmg
             release/*.AppImage
+            release/*.deb
             release/*.blockmap
             release/latest*.yml
           if-no-files-found: error
@@ -91,5 +92,6 @@ jobs:
             release/*.exe
             release/*.dmg
             release/*.AppImage
+            release/*.deb
             release/*.blockmap
             release/latest*.yml
