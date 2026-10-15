@@ -80,11 +80,38 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { pattern: installers-*, path: release, merge-multiple: true }
       - run: ls -la release
+      # Direct download links at the top of the Release page; GitHub collapses long asset lists.
+      # Only files that actually built get a row.
+      - name: Write download table
+        shell: bash
+        env:
+          BASE: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}
+        run: |
+          row() { [ -f "release/$2" ] && echo "| $1 | [$2]($BASE/$2) |"; return 0; }
+          v="${{ steps.tag.outputs.name }}"; v="${v#v}"; p="LifeaLauncher-$v"
+          {
+            echo "## Download"
+            echo
+            echo "| System | File |"
+            echo "|---|---|"
+            row "Windows (any PC)" "$p-win.exe"
+            row "Windows x64 only (smaller)" "$p-win-x64.exe"
+            row "Windows ARM64 only (smaller)" "$p-win-arm64.exe"
+            row "macOS (Intel + Apple silicon)" "$p-mac-universal.dmg"
+            row "Ubuntu / Debian" "$p-linux-amd64.deb"
+            row "Any Linux" "$p-linux-x86_64.AppImage"
+            echo
+            echo "Debian/Ubuntu: \`sudo apt install ./$p-linux-amd64.deb\`. Windows SmartScreen: *More info → Run anyway* (installer is unsigned)."
+            echo
+            echo "The \`.yml\` and \`.blockmap\` files are for the auto-updater; you don't need them."
+          } > notes.md
+          cat notes.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           target_commitish: ${{ github.sha }}
           name: LifeaLauncher ${{ steps.tag.outputs.name }}
+          body_path: notes.md
           make_latest: 'true'
           generate_release_notes: true
           fail_on_unmatched_files: false
