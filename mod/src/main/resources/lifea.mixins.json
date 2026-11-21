@@ -9,6 +9,7 @@
     "EntityMixin",
     "InGameHudMixin",
     "MouseMixin",
+    "PartnerServerListMixin",
     "SimpleOptionAccessor"
   ],
   "injectors": { "defaultRequire": 0 }

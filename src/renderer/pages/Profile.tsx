@@ -5,9 +5,9 @@ import { ArrowUpCircle, Camera, ChevronLeft, FilePlus, FolderOpen, Gauge, Globe,
 import type { ContentFile, ContentKind, InstanceSummary, UpdateInfo } from '@shared/types';
 import { LOADERS } from '@shared/constants';
 import { call, pathForFile } from '../lib/ipc';
-import { cn, formatBytes, loaderName, relativeTime } from '../lib/util';
+import { asset, cn, formatBytes, loaderName, relativeTime } from '../lib/util';
 import { qk, useInstances } from '../hooks/queries';
-import { useLaunch } from '../stores/launch';
+import { startLaunch, useLaunch } from '../stores/launch';
 import { attempt, toast } from '../stores/toasts';
 import { InstanceIcon, INSTANCE_ICON_IDS } from '../components/InstanceIcon';
 import { PlayButton } from '../components/PlayButton';
@@ -21,7 +21,7 @@ const ContentRow = memo(function ContentRow({ f, checked, onCheck, onToggle }: {
   return (
     <div className={cn('flex items-center gap-3 px-3 h-14 rounded-md border border-transparent hover:bg-bg2 hover:border-line transition', !f.enabled && 'opacity-55')}>
       <input type="checkbox" aria-label={`Select ${f.name}`} checked={checked} onChange={(e) => onCheck(e.target.checked)} className="w-4 h-4 accent-[var(--accent)]" />
-      {f.iconUrl ? <img src={f.iconUrl} alt="" loading="lazy" decoding="async" width={32} height={32} className="w-8 h-8 rounded-md bg-bg3" /> : <div className="w-8 h-8 rounded-md bg-bg3 grid place-items-center"><Package className="w-4 h-4 text-t3" /></div>}
+      {f.iconUrl ? <img src={f.iconUrl} alt="" loading="lazy" decoding="async" width={32} height={32} className="w-8 h-8 rounded-md bg-bg3" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = asset('icons/lifea-logo.png'); }} /> : <div className="w-8 h-8 rounded-md bg-bg3 grid place-items-center"><Package className="w-4 h-4 text-t3" /></div>}
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">{f.name}</div>
         <div className="text-2xs text-t3 truncate">{f.version ? `${f.version} · ` : ''}{f.file} · {formatBytes(f.size)}</div>
@@ -184,7 +184,7 @@ function WorldsTab({ inst }: { inst: InstanceSummary }) {
             <div className="text-sm font-medium truncate">{w.name}</div>
             <div className="text-2xs text-t3">Last played {relativeTime(w.lastPlayed)}</div>
           </div>
-          <Button size="sm" variant="primary" icon={Play} onClick={() => void attempt(() => call('launch:start', inst.id, { world: w.folder }), 'Could not launch')}>Play</Button>
+          <Button size="sm" variant="primary" icon={Play} onClick={() => void attempt(() => startLaunch(inst.id, { world: w.folder }), 'Could not launch')}>Play</Button>
         </div>
       ))}
     </div>

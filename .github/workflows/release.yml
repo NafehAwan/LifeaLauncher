@@ -6,25 +6,57 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (defaults to package.json version)'
+        required: false
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   mod:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '21' }
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew build --no-daemon
+      - run: bash ./gradlew build --no-daemon && (cd mc1_21_11 && bash ./gradlew build --no-daemon)
         working-directory: mod
       - uses: actions/upload-artifact@v4
-        with: { name: lifea-core, path: mod/build/libs/lifea-core-*+mc*.jar }
+        with:
+          name: lifea-core
+          path: |
+            mod/build/libs/lifea-core-*+mc*.jar
+            mod/mc1_21_11/build/libs/lifea-core-*+mc*.jar
+            !mod/build/libs/*-sources.jar
+          if-no-files-found: error
+
+  tuff-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '25' }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: bash ./gradlew build --no-daemon
+        working-directory: mod/tuff-client
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tuff-client
+          path: |
+            mod/tuff-client/build/libs/tuff-client-*+mc*.jar
+            !mod/tuff-client/build/libs/*-sources.jar
+          if-no-files-found: error
 
   installers:
-    needs: mod
+    needs: [mod, tuff-client]
     strategy:
       fail-fast: false
       matrix:
@@ -37,6 +69,8 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: lifea-core, path: resources/lifea-core }
+      - uses: actions/download-artifact@v4
+        with: { name: tuff-client, path: resources/lifea-core }
       - name: Build installers (never committed to git)
         shell: bash
         run: |
@@ -45,10 +79,9 @@ jobs:
           npm run build && npx electron-builder --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          # Optional: set these repository secrets to sign installers / enable Microsoft login.
+          # Optional: set these repository secrets to sign installers.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          LIFEA_MSA_CLIENT_ID: ${{ secrets.LIFEA_MSA_CLIENT_ID }}
           LIFEA_BACKEND_URL: ${{ vars.LIFEA_BACKEND_URL }}
       - uses: actions/upload-artifact@v4
         with:
@@ -57,7 +90,6 @@ jobs:
             release/*.exe
             release/*.dmg
             release/*.AppImage
-            release/*.deb
             release/*.blockmap
             release/latest*.yml
           if-no-files-found: error
@@ -66,59 +98,43 @@ jobs:
   # One job publishes everything, so the three OS builds never race to create the release.
   # A manual run tags the current commit v<package.json version>; a tag push uses that tag.
   release:
-    needs: installers
-    # Publish whatever built, so one OS failing never hides the others.
-    if: ${{ !cancelled() }}
+    needs: [mod, tuff-client, installers]
+    # Only publish after every required build has succeeded.
+    if: ${{ needs.mod.result == 'success' && needs.tuff-client.result == 'success' && needs.installers.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - id: tag
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then echo "name=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
-          else echo "name=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"; fi
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            name="$GITHUB_REF_NAME"
+          else
+            requested='${{ inputs.version }}'
+            if [[ -z "$requested" ]]; then requested="$(node -p "require('./package.json').version")"; fi
+            name="${requested#v}"
+            name="v$name"
+          fi
+          if [[ ! "$name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $name" >&2
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with: { pattern: installers-*, path: release, merge-multiple: true }
       - run: ls -la release
-      # Direct download links at the top of the Release page; GitHub collapses long asset lists.
-      # Only files that actually built get a row.
-      - name: Write download table
-        shell: bash
-        env:
-          BASE: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}
-        run: |
-          row() { [ -f "release/$2" ] && echo "| $1 | [$2]($BASE/$2) |"; return 0; }
-          v="${{ steps.tag.outputs.name }}"; v="${v#v}"; p="LifeaLauncher-$v"
-          {
-            echo "## Download"
-            echo
-            echo "| System | File |"
-            echo "|---|---|"
-            row "Windows (any PC)" "$p-win.exe"
-            row "Windows x64 only (smaller)" "$p-win-x64.exe"
-            row "Windows ARM64 only (smaller)" "$p-win-arm64.exe"
-            row "macOS (Intel + Apple silicon)" "$p-mac-universal.dmg"
-            row "Ubuntu / Debian" "$p-linux-amd64.deb"
-            row "Any Linux" "$p-linux-x86_64.AppImage"
-            echo
-            echo "Debian/Ubuntu: \`sudo apt install ./$p-linux-amd64.deb\`. Windows SmartScreen: *More info → Run anyway* (installer is unsigned)."
-            echo
-            echo "The \`.yml\` and \`.blockmap\` files are for the auto-updater; you don't need them."
-          } > notes.md
-          cat notes.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           target_commitish: ${{ github.sha }}
           name: LifeaLauncher ${{ steps.tag.outputs.name }}
-          body_path: notes.md
           make_latest: 'true'
+          overwrite_files: true
           generate_release_notes: true
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
           files: |
             release/*.exe
             release/*.dmg
             release/*.AppImage
-            release/*.deb
             release/*.blockmap
             release/latest*.yml

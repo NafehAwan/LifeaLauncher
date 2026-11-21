@@ -1,64 +1,148 @@
 /**
  * Pre-launch hooks for Lifea-managed profiles:
  *  - first launch of a built-in Fabric profile installs the version-correct performance pack,
- *  - the bundled lifea-core mod is copied in when a build exists for that Minecraft version,
+ *  - bundled LifeaCore/Tuff builds are loaded only for their exact Minecraft version,
  *  - the local bridge port/token are passed to the game as system properties.
  */
 import { app } from 'electron';
 import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
-import { instanceDir } from './core/paths';
+import { delimiter, join } from 'node:path';
+import { selectedAccount } from './accounts/store';
 import { addPreLaunchHook } from './game/launch';
 import { bridgeInfo } from './game/bridge';
-import { listContent, mutateInstance } from './game/instances';
-import { optimize } from './game/modrinth';
+import { deleteContent, listContent, toggleContent } from './game/instances';
+import { installProject, optimize } from './game/modrinth';
+import { writeCosmeticsSync } from './game/cosmetics-sync';
+import { safeJoin } from './core/fsx';
+import { wardrobeDir } from './core/paths';
 
 function bundledModDirs(): string[] {
-  return app.isPackaged ? [join(process.resourcesPath, 'lifea-core')] : [join(app.getAppPath(), 'mod', 'build', 'libs'), join(app.getAppPath(), 'resources', 'lifea-core')];
+  return app.isPackaged ? [join(process.resourcesPath, 'lifea-core')] : [join(app.getAppPath(), 'mod', 'build', 'libs'), join(app.getAppPath(), 'mod', 'tuff-client', 'build', 'libs'), join(app.getAppPath(), 'resources', 'lifea-core')];
 }
 
-async function findCoreJar(mc: string): Promise<string | null> {
+async function findCoreJars(mc: string, loader: string, loaderVersion?: string): Promise<string[]> {
+  if (loader !== 'fabric') return [];
+  const hits: string[] = [];
   for (const dir of bundledModDirs()) {
     const files = await fs.readdir(dir).catch(() => [] as string[]);
-    const hit = files.find((f) => f.startsWith('lifea-core') && f.endsWith('.jar') && f.includes(`mc${mc}`) && !f.includes('sources'));
-    if (hit) return join(dir, hit);
+    for (const file of files) {
+      if (!file.endsWith(`+mc${mc}.jar`) || file.includes('sources')) continue;
+      if (file.startsWith('tuff-client-') && !atLeastVersion(loaderVersion, '0.19.5')) continue;
+      if (file.startsWith('lifea-core-') && !atLeastVersion(loaderVersion, '0.16.0')) continue;
+      if (file.startsWith('lifea-core-') || file.startsWith('tuff-client-')) hits.push(join(dir, file));
+    }
   }
-  return null;
+  return hits;
+}
+
+function atLeastVersion(actual: string | undefined, required: string): boolean {
+  if (!actual) return false;
+  const parse = (value: string) => value.split(/[.+-]/).slice(0, 3).map((part) => Number.parseInt(part, 10));
+  const a = parse(actual);
+  const b = parse(required);
+  if ([...a, ...b].some((part) => !Number.isFinite(part))) return false;
+  for (let i = 0; i < 3; i++) {
+    if (a[i] > b[i]) return true;
+    if (a[i] < b[i]) return false;
+  }
+  return true;
+}
+
+function safePathSegment(value: string): string {
+  return value.replace(/[^A-Za-z0-9._+-]/g, '_');
 }
 
 export function registerLifeaHooks(): void {
   addPreLaunchHook(async (ctx) => {
     const inst = ctx.instance;
-    if (inst.loader !== 'fabric' && inst.loader !== 'quilt') return;
     const mods = await listContent(inst.id, 'mods');
 
-    if (inst.builtin && !inst.lastPlayed && mods.filter((m) => m.source !== 'lifea').length === 0) {
+    if (!inst.lastPlayed && mods.filter((m) => m.source !== 'lifea').length === 0 && inst.loader !== 'vanilla') {
       ctx.phase('installing', 'Installing performance mods (first launch)');
       const r = await optimize(inst.id, false, ctx.signal);
       ctx.log('INFO', `Performance pack: ${r.installed.map((i) => i.name).join(', ') || 'nothing new'}`);
       for (const w of r.warnings) ctx.log('WARN', w);
     }
 
-    if (inst.builtin) {
-      const jar = await findCoreJar(inst.version);
-      const dest = join(instanceDir(inst.id), 'mods', 'lifea-core.jar');
-      if (jar) {
-        const [a, b] = await Promise.all([fs.stat(jar), fs.stat(dest).catch(() => null)]);
-        if (!b || a.size !== b.size || a.mtimeMs > b.mtimeMs) {
-          await fs.copyFile(jar, dest);
-          await mutateInstance(inst.id, (i) => {
-            i.meta['mods/lifea-core.jar'] = { name: 'Lifea Core', source: 'lifea' };
-          });
+    // Only the bundled core client jars are tied to Fabric. Other loaders still
+    // get their own compatible Modrinth optimization set above.
+    if (inst.loader !== 'fabric' && inst.loader !== 'quilt') return;
+
+    // Clean up the launcher-managed copy from older builds. Never remove a user-added jar.
+    if (mods.some((m) => m.file === 'lifea-core.jar' && m.source === 'lifea')) {
+      await deleteContent(inst.id, 'mods', ['lifea-core.jar']);
+    }
+
+    const jars = await findCoreJars(inst.version, inst.loader, inst.loaderVersion);
+    if (inst.loader === 'fabric' && jars.length > 0) {
+      const installedMods = await listContent(inst.id, 'mods');
+      const fabricApi = installedMods.find((mod) => mod.file.toLowerCase().startsWith('fabric-api'));
+      const apiMatchesVersion = fabricApi && `${fabricApi.version ?? ''} ${fabricApi.file}`.includes(inst.version);
+      if (fabricApi && !apiMatchesVersion) {
+        throw new Error(`Fabric API in this profile does not match Minecraft ${inst.version}. Remove or replace ${fabricApi.file}, then launch again.`);
+      }
+      if (fabricApi && !fabricApi.enabled) {
+        await toggleContent(inst.id, 'mods', fabricApi.file, true);
+        ctx.log('INFO', 'Enabled Fabric API, required by the bundled client mod.');
+      } else if (!fabricApi) {
+        ctx.phase('installing', 'Installing client mod dependency (Fabric API)');
+        const dependency = await installProject(inst.id, 'fabric-api', undefined, ctx.signal);
+        ctx.log('INFO', `Fabric API installed: ${dependency.installed.map((item) => item.file).join(', ') || 'already present'}`);
+      }
+    }
+    if (jars.length) {
+      // Keep the bundled jar outside the discoverable mods list. Fabric/Quilt expose
+      // documented extra-mod properties, so no mods-folder copy is needed.
+      const coreDir = join(
+        app.getPath('userData'),
+        'core-mods',
+        inst.loader,
+        safePathSegment(inst.loaderVersion ?? 'loader-default'),
+        safePathSegment(inst.version),
+        safePathSegment(inst.id),
+      );
+      await fs.mkdir(coreDir, { recursive: true });
+      const destinations: string[] = [];
+      for (const jar of jars) {
+        const dest = join(coreDir, jar.slice(Math.max(jar.lastIndexOf('/'), jar.lastIndexOf('\\')) + 1));
+        await fs.copyFile(jar, dest);
+        destinations.push(dest);
+      }
+      const property = inst.loader === 'quilt' ? '-Dloader.addMods=' : '-Dfabric.addMods=';
+      ctx.extraJvmArgs.push(`${property}${destinations.join(delimiter)}`);
+      ctx.log('INFO', `Version-matched Lifea client mods for Minecraft ${inst.version} loaded from launcher storage.`);
+    } else {
+      ctx.log('DEBUG', `No version-matched Lifea client mod for Minecraft ${inst.version}; skipped to avoid a version mismatch.`);
+    }
+
+    if (jars.some((jar) => jar.includes('lifea-core-'))) {
+      const account = await selectedAccount();
+      const syncPath = await writeCosmeticsSync(inst.id, account);
+      ctx.extraJvmArgs.push(`-Dlifea.cosmetics.path=${syncPath}`);
+      if (account?.localSkinFile || account?.type === 'offline') {
+        const localSkin = account.localSkinFile
+          ? safeJoin(join(wardrobeDir(), 'skins'), account.localSkinFile)
+          : app.isPackaged ? join(process.resourcesPath, 'default-skins', 'steve.png') : join(app.getAppPath(), 'resources', 'default-skins', 'steve.png');
+        if (await fs.stat(localSkin).then((stat) => stat.isFile()).catch(() => false)) {
+          ctx.extraJvmArgs.push(`-Dlifea.skin.path=${localSkin}`);
+          ctx.extraJvmArgs.push(`-Dlifea.skin.model=${account.localSkinFile && account.skinVariant === 'slim' ? 'slim' : 'classic'}`);
         }
-        ctx.log('INFO', 'Lifea Core mod enabled (Right-Shift in game).');
-      } else {
-        ctx.log('DEBUG', `No bundled lifea-core build for Minecraft ${inst.version}.`);
+      }
+      if (account?.localCapeFile) {
+        const localCape = safeJoin(join(wardrobeDir(), 'capes'), account.localCapeFile);
+        if (await fs.stat(localCape).then((stat) => stat.isFile()).catch(() => false)) {
+          ctx.extraJvmArgs.push(`-Dlifea.cape.path=${localCape}`);
+        }
+      }
+      for (const [type, cosmeticId] of Object.entries(account?.localCosmetics ?? {})) {
+        if (cosmeticId && ['wings', 'hat', 'bandana'].includes(type) && /^[a-z0-9_-]{1,40}$/i.test(cosmeticId)) {
+          ctx.extraJvmArgs.push(`-Dlifea.cosmetic.${type}=${cosmeticId}`);
+        }
       }
     }
 
     const bridge = bridgeInfo();
-    const hasCore = (await listContent(inst.id, 'mods')).some((m) => m.enabled && m.file === 'lifea-core.jar');
-    if (bridge && hasCore) {
+    if (bridge && jars.some((jar) => jar.includes('lifea-core-'))) {
       ctx.extraJvmArgs.push(`-Dlifea.bridge.port=${bridge.port}`, `-Dlifea.bridge.token=${bridge.token}`, `-Dlifea.instance=${inst.id}`);
     }
   });

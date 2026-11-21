@@ -20,21 +20,28 @@ export async function getManifest(force = false): Promise<VersionManifest> {
   const st = await fs.stat(file).catch(() => null);
   if (!force && st && Date.now() - st.mtimeMs < MANIFEST_TTL) {
     const cached = await readJson<VersionManifest>(file);
-    if (cached) return (memManifest = { at: st.mtimeMs, data: cached }).data;
+    if (isVersionManifest(cached)) return (memManifest = { at: st.mtimeMs, data: cached }).data;
   }
   try {
-    const data = await getJson<VersionManifest>(MOJANG.manifest);
+    const data: unknown = await getJson<unknown>(MOJANG.manifest);
+    if (!isVersionManifest(data)) throw new Error('Mojang returned a malformed Minecraft version manifest.');
     await writeJsonAtomic(file, data);
     memManifest = { at: Date.now(), data };
     return data;
   } catch (e) {
     const cached = await readJson<VersionManifest>(file);
-    if (cached) {
+    if (isVersionManifest(cached)) {
       log.warn('Using cached version manifest (offline?)', e);
       return cached;
     }
     throw new Error(`Could not load the Minecraft version list. Check your internet connection. (${(e as Error).message})`);
   }
+}
+
+function isVersionManifest(value: unknown): value is VersionManifest {
+  if (!value || typeof value !== 'object') return false;
+  const manifest = value as Partial<VersionManifest>;
+  return Array.isArray(manifest.versions) && manifest.versions.every((v) => v && typeof v.id === 'string' && typeof v.url === 'string' && typeof v.type === 'string');
 }
 
 export async function listVersions(includeSnapshots: boolean): Promise<MinecraftVersion[]> {
@@ -51,7 +58,7 @@ export const nativesDirFor = (id: string) => join(versionsDir(), id, 'natives');
 /** Load a version JSON from disk, fetching vanilla ones from Mojang when missing. */
 export async function loadVersionJson(id: string): Promise<VersionJson> {
   const local = await readJson<VersionJson>(versionJsonPath(id));
-  if (local) return local;
+  if (local) return validateVersionJson(local, id, 'local cache');
   const manifest = await getManifest();
   const entry = manifest.versions.find((v) => v.id === id);
   if (!entry) throw new Error(`Minecraft version "${id}" is not installed and not in Mojang's version list.`);
@@ -59,11 +66,37 @@ export async function loadVersionJson(id: string): Promise<VersionJson> {
   if (!(await isUpToDate(task))) await downloadFile(task);
   const data = await readJson<VersionJson>(task.path);
   if (!data) throw new Error(`Version JSON for ${id} is unreadable.`);
-  return data;
+  return validateVersionJson(data, id, 'Mojang download');
 }
 
 export async function saveVersionJson(json: VersionJson): Promise<void> {
+  validateVersionJson(json, json.id, 'loader installer');
   await writeJsonAtomic(versionJsonPath(json.id), json);
+}
+
+/** Validate network and disk JSON at its source so launch code never trips over untrusted shapes. */
+function validateVersionJson(value: unknown, expectedId: string, source: string): VersionJson {
+  const fail = (field: string): Error => new Error(`Invalid ${source} for Minecraft ${expectedId}: expected ${field}.`);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw fail('a JSON object');
+  const v = value as Partial<VersionJson>;
+  if (typeof v.id !== 'string' || typeof v.mainClass !== 'string') throw fail('string id and mainClass fields');
+  const libraries = v.libraries;
+  if (!Array.isArray(libraries)) throw fail('a libraries array');
+  if (libraries.some((lib) => !lib || typeof lib.name !== 'string')) throw fail('libraries with string names');
+  const versionArgs = v.arguments;
+  if (versionArgs !== undefined) {
+    if (!versionArgs || typeof versionArgs !== 'object' || Array.isArray(versionArgs)) throw fail('an arguments object');
+    for (const key of ['game', 'jvm'] as const) {
+      const args = versionArgs[key];
+      if (args !== undefined && (!Array.isArray(args) || args.some((arg) => typeof arg !== 'string' && (!arg || typeof arg !== 'object' || Array.isArray(arg) || !('value' in arg))))) {
+        throw fail(`arguments.${key} as an array`);
+      }
+    }
+  }
+  if (v.minecraftArguments !== undefined && typeof v.minecraftArguments !== 'string') throw fail('minecraftArguments as a string');
+  if (v.downloads !== undefined && (!v.downloads || typeof v.downloads !== 'object' || Array.isArray(v.downloads))) throw fail('downloads as an object');
+  if (v.assetIndex !== undefined && (!v.assetIndex || typeof v.assetIndex !== 'object' || typeof v.assetIndex.url !== 'string' || typeof v.assetIndex.id !== 'string')) throw fail('assetIndex with string id and url');
+  return v as VersionJson;
 }
 
 /** Resolve a version id, following `inheritsFrom` recursively (Fabric/Quilt/Forge → vanilla). */

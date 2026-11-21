@@ -16,14 +16,20 @@ files:
   - package.json
   - build/icon.png
 extraResources:
-  # Built lifea-core jars (CI copies mod/build/libs/*.jar here before packaging). Optional.
+  # Version-specific client mod jars and explicitly version-gated third-party mods.
   - from: resources/lifea-core
     to: lifea-core
     filter: ['*.jar']
+  - from: resources/default-capes
+    to: default-capes
+    filter: ['*.png']
+  - from: resources/default-skins
+    to: default-skins
+    filter: ['*.png']
 publish:
   provider: github
-  owner: nafehawan
-  repo: lifealauncher
+  owner: cravewhoo
+  repo: LifeaLauncher-updated
   releaseType: release
 win:
   target:
@@ -52,21 +58,5 @@ mac:
 linux:
   target:
     - AppImage
-    - deb
   category: Game
   icon: build/icon.png
-  synopsis: Fast red Minecraft launcher
-  maintainer: LifeaLauncher <lifealauncher@users.noreply.github.com>
-deb:
-  # Electron runtime libraries; libasound2t64 is the Ubuntu 24.04+ name.
-  depends:
-    - libgtk-3-0
-    - libnotify4
-    - libnss3
-    - libxss1
-    - libxtst6
-    - xdg-utils
-    - libatspi2.0-0
-    - libuuid1
-    - libsecret-1-0
-    - libasound2 | libasound2t64

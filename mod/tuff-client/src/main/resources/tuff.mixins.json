@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "net.tuffclient.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": ["CameraMixin", "GuiMixin", "PartnerServerListMixin", "RedGlassMenuMixin"],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

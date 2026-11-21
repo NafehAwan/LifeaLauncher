@@ -105,6 +105,11 @@ function dropEmptyFlagValues(args: string[]): string[] {
 export function buildLaunchArgs(input: LaunchArgsInput): LaunchArgs {
   const unknown = new Set<string>();
   const { version, env, vars } = input;
+  if (!version || typeof version.mainClass !== 'string' || !version.mainClass) throw new Error(`Version ${version?.id ?? '(unknown)'} has no valid main class.`);
+  if (version.arguments && typeof version.arguments !== 'object') throw new Error(`Version ${version.id} has invalid launch arguments.`);
+  for (const key of ['game', 'jvm'] as const) {
+    if (version.arguments?.[key] !== undefined && !Array.isArray(version.arguments[key])) throw new Error(`Version ${version.id} has invalid arguments.${key}; expected an array.`);
+  }
   const jvmTemplate = version.arguments?.jvm?.length ? version.arguments.jvm : LEGACY_JVM;
   const versionJvm = flatten(jvmTemplate, env).map((a) => substitute(a, vars, unknown));
 

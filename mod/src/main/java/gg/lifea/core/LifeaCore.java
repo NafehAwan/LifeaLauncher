@@ -19,6 +19,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
+import net.minecraft.client.render.entity.PlayerEntityRenderer;
+import gg.lifea.core.render.LocalCosmeticFeatureRenderer;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ServerInfo;
@@ -58,6 +61,12 @@ public final class LifeaCore implements ClientModInitializer {
         waypointKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.lifea.waypoint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.lifea"));
 
         ServerRules.register();
+
+        LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, renderer, helper, context) -> {
+            if (renderer instanceof PlayerEntityRenderer playerRenderer) {
+                helper.register(new LocalCosmeticFeatureRenderer(playerRenderer, context));
+            }
+        });
 
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> Modules.loadAll());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {

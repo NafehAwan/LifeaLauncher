@@ -2,7 +2,7 @@
 import type { BuiltinProfile, Loader, Settings, ThemeId } from './types';
 
 export const APP_NAME = 'LifeaLauncher';
-export const REPO_URL = 'https://github.com/nafehawan/lifealauncher';
+export const REPO_URL = 'https://github.com/cravewhoo/LifeaLauncher-updated';
 
 export interface ThemeDef {
   id: ThemeId;
@@ -44,6 +44,11 @@ export const LOADERS: { id: Loader; name: string }[] = [
   { id: 'neoforge', name: 'NeoForge' },
 ];
 
+/** Built-in Lifea partner servers are launcher-managed and always synced to instances. */
+export const PARTNERED_SERVERS = [
+  { id: 'lifeamc', name: 'LifeaMC', address: 'lifeamc.fun', subtitle: 'Official Lifea Minecraft network' },
+] as const;
+
 export const INSTANCE_ICONS = ['grass', 'diamond', 'sword', 'pickaxe', 'tnt', 'ender', 'redstone', 'netherite'] as const;
 
 export const BUILTIN_PROFILES: { id: BuiltinProfile; name: string; version: string; loader: Loader; icon: string }[] = [
@@ -54,15 +59,19 @@ export const BUILTIN_PROFILES: { id: BuiltinProfile; name: string; version: stri
 
 /** Version-correct performance set installed by "Optimize this profile" (Modrinth slugs). */
 export const PERFORMANCE_MODS: { slug: string; title: string; description: string; impact: 'High' | 'Medium' | 'Low'; loaders: Loader[] }[] = [
-  { slug: 'fabric-api', title: 'Fabric API', description: 'Required by most Fabric mods.', impact: 'Low', loaders: ['fabric'] },
-  { slug: 'sodium', title: 'Sodium', description: 'Modern rendering engine — usually doubles or triples FPS.', impact: 'High', loaders: ['fabric', 'quilt', 'neoforge'] },
-  { slug: 'lithium', title: 'Lithium', description: 'Optimizes game logic, physics and AI without changing behaviour.', impact: 'Medium', loaders: ['fabric', 'quilt', 'neoforge'] },
-  { slug: 'ferrite-core', title: 'FerriteCore', description: 'Cuts memory usage considerably.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
-  { slug: 'entityculling', title: 'Entity Culling', description: 'Skips rendering entities you cannot see.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
-  { slug: 'immediatelyfast', title: 'ImmediatelyFast', description: 'Speeds up HUD, text and entity rendering.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
-  { slug: 'modernfix', title: 'ModernFix', description: 'Faster launch, lower memory, many bug fixes.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
-  { slug: 'dynamic-fps', title: 'Dynamic FPS', description: 'Throttles the game when it is in the background.', impact: 'Low', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
-  { slug: 'moreculling', title: 'More Culling', description: 'Culls more block faces for extra FPS.', impact: 'Low', loaders: ['fabric', 'quilt'] },
+  { slug: 'fabric-api', title: 'Fabric API', description: 'Compatibility library required by many Fabric client mods.', impact: 'Low', loaders: ['fabric'] },
+  { slug: 'sodium', title: 'Sodium', description: 'Optimized Fabric-family renderer; installs only when Modrinth has an exact compatible build.', impact: 'High', loaders: ['fabric', 'quilt'] },
+  { slug: 'embeddium', title: 'Embeddium', description: 'Optimized renderer for Forge and NeoForge profiles.', impact: 'High', loaders: ['forge', 'neoforge'] },
+  { slug: 'lithium', title: 'Lithium', description: 'Improves game logic and server-side ticks without changing vanilla behavior.', impact: 'Medium', loaders: ['fabric', 'quilt'] },
+  { slug: 'ferrite-core', title: 'FerriteCore', description: 'Reduces memory use by optimizing block-state storage.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
+  { slug: 'modernfix', title: 'ModernFix', description: 'Version-aware memory, load-time and bug fixes for supported profiles.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
+  { slug: 'entityculling', title: 'EntityCulling', description: 'Skips rendering entities and block entities hidden from view.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
+  { slug: 'immediatelyfast', title: 'ImmediatelyFast', description: 'Reduces immediate-mode rendering overhead where supported.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
+  { slug: 'moreculling', title: 'More Culling', description: 'Adds conservative block and face culling for compatible Fabric profiles.', impact: 'Low', loaders: ['fabric', 'quilt'] },
+  { slug: 'dynamic-fps', title: 'Dynamic FPS', description: 'Lowers idle resource use when Minecraft is unfocused.', impact: 'Low', loaders: ['fabric', 'quilt', 'forge', 'neoforge'] },
+  { slug: 'foamfix', title: 'FoamFix', description: 'Legacy memory optimization where a compatible Forge or Fabric build exists.', impact: 'Medium', loaders: ['fabric', 'forge'] },
+  { slug: 'noisium', title: 'Noisium', description: 'Optimizes world-generation noise calculations where supported.', impact: 'Low', loaders: ['fabric', 'quilt'] },
+  { slug: 'starlight', title: 'Starlight', description: 'Legacy lighting engine for versions that still have a compatible release.', impact: 'Medium', loaders: ['fabric', 'quilt', 'forge'] },
 ];
 
 export const DEFAULT_JVM_ARGS = '';
@@ -82,7 +91,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultJvmArgs: DEFAULT_JVM_ARGS,
   gcPreset: 'g1',
   javaOverrides: {},
-  parallelDownloads: 24,
+  parallelDownloads: 48,
   maxLogLines: 20000,
   selectedInstanceId: undefined,
   selectedAccountId: undefined,

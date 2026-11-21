@@ -60,7 +60,8 @@ export function AccountMenu() {
 
 export function AddAccountModal() {
   const open = useUi((s) => s.addAccount);
-  const close = () => useUi.getState().set({ addAccount: false });
+  const accountRequired = useUi((s) => s.accountRequired);
+  const close = () => useUi.getState().set({ addAccount: false, accountRequired: false });
   const qc = useQueryClient();
   const info = useAppInfo();
   const [name, setName] = useState('');
@@ -77,6 +78,7 @@ export function AddAccountModal() {
   return (
     <Modal open={open} onClose={close} title="Add an account" subtitle="Microsoft accounts can join online servers. Offline accounts are for singleplayer and LAN.">
       <div className="flex flex-col gap-5">
+        {accountRequired && <div role="alert" className="rounded-md border border-accent/40 bg-accent/10 p-3 text-sm text-t1">Add an account to play. Sign in with Microsoft or create an offline account below, then press Play again.</div>}
         <div className="surface p-4">
           <div className="font-semibold text-t1">Microsoft account</div>
           <p className="text-xs text-t3 mt-1">

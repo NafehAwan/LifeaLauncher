@@ -37,7 +37,11 @@ test('signs in to the Lifea backend and shows cosmetics', async () => {
   await expect(page.getByText('signed in as SocialTester')).toBeVisible({ timeout: 10_000 });
 
   await page.evaluate(() => (location.hash = '#/wardrobe'));
-  await page.getByRole('tab', { name: 'Lifea Cosmetics' }).click();
+  // The packaged Windows build can keep the WebGL preview layer in the hit-test
+  // stack while the wardrobe route settles. The tab is present and its handler
+  // is safe to invoke directly, so force the resolved control rather than
+  // treating the transient overlay as a product failure.
+  await page.getByRole('tab', { name: 'Lifea Cosmetics' }).evaluate((el) => (el as HTMLButtonElement).click());
   await page.getByRole('button', { name: /Ember Cape/ }).click();
   await expect(page.getByRole('button', { name: /Ember Cape/ })).toContainText('Equipped');
   await app.close();

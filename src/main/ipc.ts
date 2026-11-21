@@ -10,7 +10,8 @@ import type { InvokeArgs, InvokeChannel, InvokeResult } from '@shared/ipc';
 import { settingsPatchSchema } from '@shared/schemas';
 import { request } from './core/http';
 import { logFilePath } from './core/log';
-import { instanceDir } from './core/paths';
+import { instanceDir, wardrobeDir } from './core/paths';
+import { safeJoin } from './core/fsx';
 import { getSettings, updateSettings } from './core/settings';
 import { emit } from './core/events';
 import { addMicrosoftAccount, addOfflineAccount, listAccounts, msaAccessToken, removeAccount, updateAccountProfile } from './accounts/store';
@@ -35,6 +36,7 @@ import {
 import { listRuntimes, probeJava } from './game/java';
 import { cancelLaunch, launchStates, recentLogs, startLaunch } from './game/launch';
 import { listLoaderVersions } from './game/loaders/fabric';
+import { writeCosmeticsSync } from './game/cosmetics-sync';
 import { listForgeVersions } from './game/loaders/forge';
 import * as modrinth from './game/modrinth';
 import { exportMrpack, importMrpack, installModpack } from './game/mrpack';
@@ -51,7 +53,7 @@ const fileName = z.string().min(1).max(255).refine((s) => !/[\\/]/.test(s) && s 
 const loader = z.enum(['vanilla', 'fabric', 'quilt', 'forge', 'neoforge']);
 const mcVersion = z.string().min(1).max(64);
 const wardrobeKind = z.enum(['skins', 'capes']);
-const cosmeticType = z.enum(['cape', 'wings', 'hat', 'bandana', 'pet', 'emote']);
+const cosmeticType = z.enum(['cape', 'wings', 'hat', 'bandana', 'bodywear', 'pet', 'emote']);
 const instanceSettings = z.object({
   memoryMb: z.number().int().min(512).max(65536).optional(),
   javaPath: z.string().max(1024).optional(),
@@ -231,7 +233,9 @@ export function registerIpc(): void {
   });
 
   /* launch */
-  handle('launch:start', z.tuple([id, z.object({ server: z.string().max(255).optional(), world: z.string().max(255).optional() }).optional()]), ([i, opts]) => {
+  handle('launch:start', z.tuple([id, z.object({ server: z.string().max(255).optional(), world: z.string().max(255).optional() }).optional()]), async ([i, opts]) => {
+    const accounts = await listAccounts();
+    if (!accounts.length) throw new Error('Add an account first (Microsoft or offline), then press Play again.');
     startLaunch(i, opts);
     updateSettings({ selectedInstanceId: i });
   });
@@ -302,8 +306,8 @@ export function registerIpc(): void {
     return acc;
   });
   handle('accounts:remove', z.tuple([z.string().uuid()]), ([i]) => removeAccount(i));
-  handle('accounts:upload-skin', z.tuple([z.string().uuid(), z.enum(['classic', 'slim']), z.string().max(4096).optional()]), async ([accId, variant, path], e) => {
-    const file = path ?? (await pickFiles(e, 'Skin', ['png'], false))[0];
+  handle('accounts:upload-skin', z.tuple([z.string().uuid(), z.enum(['classic', 'slim']), fileName.optional()]), async ([accId, variant, skinFile], e) => {
+    const file = skinFile ? safeJoin(join(wardrobeDir(), 'skins'), skinFile) : (await pickFiles(e, 'Skin', ['png'], false))[0];
     if (!file) throw new Error('No skin selected.');
     const png = await fs.readFile(file);
     const err = validateTexture('skins', png);
@@ -311,6 +315,37 @@ export function registerIpc(): void {
     const profile = await uploadSkin(await msaAccessToken(accId), png, variant);
     const active = profile.skins?.find((s) => s.state === 'ACTIVE');
     return updateAccountProfile(accId, { skinUrl: active?.url, skinVariant: variant });
+  });
+  handle('accounts:set-skin', z.tuple([z.string().uuid(), fileName.nullable(), z.enum(['classic', 'slim'])]), async ([accId, file, variant]) => {
+    if (file) {
+      const skinPath = safeJoin(join(wardrobeDir(), 'skins'), file);
+      const validation = validateTexture('skins', await fs.readFile(skinPath));
+      if (validation) throw new Error(validation);
+    }
+    const updated = await updateAccountProfile(accId, { localSkinFile: file ?? undefined, skinVariant: variant });
+    if (getSettings().selectedAccountId === accId && getSettings().selectedInstanceId) await writeCosmeticsSync(getSettings().selectedInstanceId!, updated);
+    return updated;
+  });
+  handle('accounts:set-cape', z.tuple([z.string().uuid(), fileName.nullable()]), async ([accId, file]) => {
+    if (file) {
+      const capePath = safeJoin(join(wardrobeDir(), 'capes'), file);
+      const validation = validateTexture('capes', await fs.readFile(capePath));
+      if (validation) throw new Error(validation);
+    }
+    const updated = await updateAccountProfile(accId, { localCapeFile: file ?? undefined });
+    if (getSettings().selectedAccountId === accId && getSettings().selectedInstanceId) await writeCosmeticsSync(getSettings().selectedInstanceId!, updated);
+    return updated;
+  });
+  handle('accounts:set-cosmetic', z.tuple([z.string().uuid(), z.enum(['wings', 'hat', 'bandana']), z.string().regex(/^[a-z0-9_-]{1,40}$/i).nullable()]), async ([accId, type, cosmeticId]) => {
+    const accounts = await listAccounts();
+    const account = accounts.find((entry) => entry.id === accId);
+    if (!account) throw new Error('Account was not found.');
+    const current = { ...(account.localCosmetics ?? {}) };
+    if (cosmeticId) current[type] = cosmeticId;
+    else delete current[type];
+    const updated = await updateAccountProfile(accId, { localCosmetics: current });
+    if (getSettings().selectedAccountId === accId && getSettings().selectedInstanceId) await writeCosmeticsSync(getSettings().selectedInstanceId!, updated);
+    return updated;
   });
 
   /* wardrobe */

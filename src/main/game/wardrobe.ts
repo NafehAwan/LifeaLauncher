@@ -1,6 +1,7 @@
 /** Local skin/cape library in <gameDir>/wardrobe, served to the renderer via app://wardrobe/… (fixes P1-5). */
 import { promises as fs } from 'node:fs';
 import { basename, join } from 'node:path';
+import { app } from 'electron';
 import { safeJoin } from '../core/fsx';
 import { wardrobeDir } from '../core/paths';
 
@@ -25,6 +26,19 @@ export function validateTexture(kind: WardrobeKind, buf: Buffer): string | null 
 
 export async function listWardrobe(kind: WardrobeKind): Promise<{ file: string; url: string; name: string }[]> {
   const dir = join(wardrobeDir(), kind);
+  await fs.mkdir(dir, { recursive: true });
+  if (kind === 'capes') {
+    const bundled = app.isPackaged ? join(process.resourcesPath, 'default-capes') : join(app.getAppPath(), 'resources', 'default-capes');
+    const defaults = await fs.readdir(bundled).catch(() => [] as string[]);
+    for (const file of defaults.filter((f) => /^lifea-default-[\w-]+\.png$/i.test(f))) {
+      const target = safeJoin(dir, file);
+      try {
+        await fs.access(target);
+      } catch {
+        await fs.copyFile(safeJoin(bundled, file), target);
+      }
+    }
+  }
   const files = await fs.readdir(dir).catch(() => [] as string[]);
   return files
     .filter((f) => /\.png$/i.test(f))
@@ -53,5 +67,6 @@ export async function importTextures(kind: WardrobeKind, paths: string[]): Promi
 }
 
 export async function removeTexture(kind: WardrobeKind, file: string): Promise<void> {
+  if (kind === 'capes' && file.startsWith('lifea-default-')) throw new Error('Built-in Lifea capes cannot be removed.');
   await fs.rm(safeJoin(join(wardrobeDir(), kind), file), { force: true });
 }

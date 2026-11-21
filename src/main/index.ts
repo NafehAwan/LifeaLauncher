@@ -34,6 +34,9 @@ process.on('uncaughtException', (e) => log.error('uncaughtException', e));
 process.on('unhandledRejection', (e) => log.error('unhandledRejection', e));
 
 if (process.env.LIFEA_USER_DATA) app.setPath('userData', process.env.LIFEA_USER_DATA);
+// Electron's network stack can fail Mojang downloads with ERR_QUIC_PROTOCOL_ERROR on some Windows networks.
+// Force HTTP/2 or HTTP/1.1 fallback so launch-time metadata and asset downloads use the stable transports.
+app.commandLine.appendSwitch('disable-quic');
 registerSchemes();
 
 if (!app.requestSingleInstanceLock()) {
@@ -95,7 +98,7 @@ async function main(): Promise<void> {
   initPaths({ userData: app.getPath('userData'), home: homedir(), gameDirSetting: () => getSettings().gameDir });
   initLog(logsDir());
   log.info(`LifeaLauncher ${app.getVersion()} (electron ${process.versions.electron}, ${process.platform}/${process.arch})`);
-  const ua = `LifeaLauncher/${app.getVersion()} (github.com/nafehawan/lifealauncher)`;
+  const ua = `LifeaLauncher/${app.getVersion()} (github.com/cravewhoo/LifeaLauncher-updated)`;
   setUserAgent(ua);
   setFetch((input, init) => net.fetch(input as string, init));
   setLauncherVersion(app.getVersion());

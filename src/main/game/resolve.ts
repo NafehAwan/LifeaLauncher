@@ -42,6 +42,8 @@ export function libraryKey(name: string): string {
  * Child libraries win on key collisions and come first; arguments are parent + child.
  */
 export function mergeVersions(child: VersionJson, parent: VersionJson): VersionJson {
+  if (!Array.isArray(child.libraries)) throw new Error(`Invalid loader version ${child.id}: missing libraries array.`);
+  if (!Array.isArray(parent.libraries)) throw new Error(`Invalid Minecraft version ${parent.id}: missing libraries array.`);
   const seen = new Set<string>();
   const libraries: Library[] = [];
   for (const lib of [...child.libraries, ...parent.libraries]) {
@@ -101,6 +103,8 @@ export function nativeClassifierArch(classifier: string): RuleEnv['arch'] | null
 }
 
 export function planLibraries(version: VersionJson, env: RuleEnv, librariesRoot: string): LibraryPlan {
+  if (!Array.isArray(version.libraries)) throw new Error(`Missing libraries array for version ${version.id}.`);
+  if (version.libraries.some((lib) => !lib || typeof lib.name !== 'string')) throw new Error(`Invalid library metadata for version ${version.id}.`);
   const plan: LibraryPlan = { downloads: [], classpath: [], natives: [] };
   const applicable = version.libraries.filter((lib) => rulesAllow(lib.rules, env));
 

@@ -13,7 +13,7 @@ const NAV: { to: string; label: string; icon: LucideIcon }[] = [
   { to: ROUTES.boost, label: 'Boost', icon: Gauge },
   { to: ROUTES.wardrobe, label: 'Wardrobe', icon: Shirt },
   { to: ROUTES.friends, label: 'Friends', icon: Users },
-  { to: ROUTES.servers, label: 'Servers', icon: Server },
+  { to: ROUTES.servers, label: 'Partnered servers', icon: Server },
   { to: ROUTES.screenshots, label: 'Screenshots', icon: Camera },
   { to: ROUTES.console, label: 'Console', icon: SquareTerminal },
 ];

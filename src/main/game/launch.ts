@@ -11,7 +11,7 @@ import type { Instance, LaunchState, LaunchStatus, LogLevel, LogLine } from '@sh
 import { emit } from '../core/events';
 import { abortError, isAbort } from '../core/http';
 import { log } from '../core/log';
-import { assetsDir, instanceDir, librariesDir } from '../core/paths';
+import { assetsDir, instanceDir, librariesDir, logsDir } from '../core/paths';
 import { getSettings } from '../core/settings';
 import { launchSession, type LaunchSession } from '../accounts/store';
 import { buildLaunchArgs, launchVars, recommendMemoryMb } from './args';
@@ -19,7 +19,7 @@ import { assetTasks, loadAssetIndex, materializeLegacyAssets } from './assets';
 import { cleanLogLine, diagnoseCrash, parseLevel, RUNNING_RE } from './crash';
 import { downloadAll, type Progress } from './download';
 import { readInstance, recordPlaytime } from './instances';
-import { ensureJava, probeJava } from './java';
+import { detectJava, ensureJava, probeJava } from './java';
 import { installLoaderProfile } from './loaders/fabric';
 import { installForgeLike } from './loaders/forge';
 import { extractNatives } from './natives';
@@ -27,6 +27,7 @@ import { buildClasspath, planLibraries } from './resolve';
 import { currentEnv } from './rules';
 import { clientJarPath, clientJarTask, loadVersionJson, nativesDirFor, resolveVersion } from './versions';
 import type { VersionJson } from './mojang';
+import { listServers, syncServersDat } from '../servers/store';
 
 export interface LaunchContext {
   instance: Instance;
@@ -166,6 +167,10 @@ export function startLaunch(instanceId: string, opts: { server?: string; world?:
       const msg = e instanceof Error ? e.message : String(e);
       log.error('launch failed', e);
       job.log('ERROR', msg);
+      const stack = e instanceof Error ? e.stack : undefined;
+      void fs.mkdir(logsDir(), { recursive: true })
+        .then(() => fs.appendFile(join(logsDir(), 'launcher-error.log'), `[${new Date().toISOString()}] ${msg}\n${stack ?? '(no stack trace)'}\n\n`))
+        .catch((writeError) => log.error('Could not persist launch error details', writeError));
       job.set({ status: 'crashed', phase: 'Failed', error: msg, crash: { title: 'Could not start Minecraft', detail: msg } });
     }
     finishJob(job);
@@ -206,6 +211,8 @@ async function resolveJava(inst: Instance, major: number, component: string | un
     if (probed && probed.major === major) return override;
     job.log('WARN', probed ? `Custom Java is ${probed.major}, but Minecraft ${inst.version} needs Java ${major}. Using a managed Java ${major} instead.` : `Custom Java at ${override} does not work. Using a managed runtime instead.`);
   }
+  const detected = await detectJava(major);
+  if (detected) return detected;
   return ensureJava(major, component, {
     signal: job.controller.signal,
     onProgress: (p) => job.phase('downloading', `Downloading Java ${major}`, p),
@@ -214,6 +221,7 @@ async function resolveJava(inst: Instance, major: number, component: string | un
 
 async function run(job: LaunchJob, opts: { server?: string; world?: string }): Promise<void> {
   const signal = job.controller.signal;
+  await syncServersDat(await listServers());
   const inst = await readInstance(job.instanceId);
   if (!inst) throw new Error('Profile not found.');
   const settings = getSettings();
@@ -229,16 +237,22 @@ async function run(job: LaunchJob, opts: { server?: string; world?: string }): P
   const vanilla = await loadVersionJson(inst.version);
   throwIfAborted(signal);
   const javaMajor = vanilla.javaVersion?.majorVersion ?? 8;
-  const java = await resolveJava(inst, javaMajor, vanilla.javaVersion?.component, job);
+  const javaPromise = resolveJava(inst, javaMajor, vanilla.javaVersion?.component, job);
+  // Fabric and Quilt metadata installers do not need the Java runtime, so overlap
+  // their network work with first-run Java provisioning instead of serializing it.
+  const loaderPromise = inst.loader === 'fabric' || inst.loader === 'quilt'
+    ? (job.phase('installing', `Preparing ${inst.loader === 'fabric' ? 'Fabric' : 'Quilt'}`), installLoaderProfile(inst.loader, inst.version, inst.loaderVersion))
+    : null;
+  const [java, fabricProfile] = await Promise.all([javaPromise, loaderPromise ?? Promise.resolve(null)]);
   job.log('INFO', `Java ${javaMajor}: ${java}`);
   throwIfAborted(signal);
 
   let versionId = inst.version;
   if (inst.loader === 'fabric' || inst.loader === 'quilt') {
-    job.phase('installing', `Installing ${inst.loader === 'fabric' ? 'Fabric' : 'Quilt'}`);
-    const r = await installLoaderProfile(inst.loader, inst.version, inst.loaderVersion);
-    versionId = r.id;
-    job.log('INFO', `${inst.loader} loader ${r.loader}`);
+    if (fabricProfile) {
+      versionId = fabricProfile.id;
+      job.log('INFO', `${inst.loader} loader ${fabricProfile.loader}`);
+    }
   } else if (inst.loader === 'forge' || inst.loader === 'neoforge') {
     job.phase('installing', `Installing ${inst.loader === 'forge' ? 'Forge' : 'NeoForge'} (first launch only)`);
     const r = await installForgeLike(inst.loader, inst.version, inst.loaderVersion, java, {

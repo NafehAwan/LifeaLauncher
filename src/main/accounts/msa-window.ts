@@ -5,7 +5,7 @@ import { authorizeUrl, exchangeCode, minecraftLogin, MSA, msaClientId, pkcePair,
 
 export async function interactiveMicrosoftLogin(parent?: BrowserWindow): Promise<{ tokens: MsaTokens; session: MinecraftSession }> {
   const clientId = msaClientId();
-  if (!clientId) throw new Error('Microsoft login is not configured in this build (LIFEA_MSA_CLIENT_ID). Use an offline account for now.');
+  if (!clientId) throw new Error('Microsoft login is unavailable. Use an offline account for now.');
   const { verifier, challenge } = pkcePair();
   const state = randomBytes(16).toString('hex');
   const code = await new Promise<string>((resolve, reject) => {
@@ -21,13 +21,18 @@ export async function interactiveMicrosoftLogin(parent?: BrowserWindow): Promise
     });
     let settled = false;
     const check = (url: string) => {
-      if (!url.startsWith(MSA.redirect)) return false;
-      const u = new URL(url);
+      let redirected: URL;
+      try {
+        redirected = new URL(url);
+      } catch {
+        return false;
+      }
+      if (redirected.origin !== MSA.redirect) return false;
       settled = true;
       win.close();
-      if (u.searchParams.get('state') !== state) reject(new Error('Sign-in was interrupted (state mismatch).'));
-      else if (u.searchParams.get('code')) resolve(u.searchParams.get('code')!);
-      else reject(new Error(u.searchParams.get('error_description') ?? 'Sign-in was cancelled.'));
+      if (redirected.searchParams.get('state') !== state) reject(new Error('Sign-in was interrupted (state mismatch).'));
+      else if (redirected.searchParams.get('code')) resolve(redirected.searchParams.get('code')!);
+      else reject(new Error(redirected.searchParams.get('error_description') ?? 'Sign-in was cancelled.'));
       return true;
     };
     win.webContents.on('will-redirect', (e, url) => {

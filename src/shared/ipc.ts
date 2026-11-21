@@ -105,6 +105,9 @@ export interface IpcInvoke {
   'accounts:login-microsoft': [[], Account];
   'accounts:remove': [[id: string], void];
   'accounts:upload-skin': [[accountId: string, variant: 'classic' | 'slim', path?: string], Account];
+  'accounts:set-skin': [[accountId: string, file: string | null, variant: 'classic' | 'slim'], Account];
+  'accounts:set-cape': [[accountId: string, file: string | null], Account];
+  'accounts:set-cosmetic': [[accountId: string, type: 'wings' | 'hat' | 'bandana', cosmeticId: string | null], Account];
 
   'wardrobe:list': [[kind: 'skins' | 'capes'], { file: string; url: string; name: string }[]];
   'wardrobe:import': [[kind: 'skins' | 'capes'], string[]];
@@ -161,7 +164,7 @@ export const INVOKE_CHANNELS = [
   'modrinth:search', 'modrinth:project', 'modrinth:versions', 'modrinth:install', 'modrinth:install-modpack',
   'modrinth:check-updates', 'modrinth:apply-updates', 'modrinth:optimize',
   'servers:list', 'servers:save', 'servers:remove', 'servers:reorder', 'servers:ping',
-  'accounts:list', 'accounts:select', 'accounts:add-offline', 'accounts:login-microsoft', 'accounts:remove', 'accounts:upload-skin',
+  'accounts:list', 'accounts:select', 'accounts:add-offline', 'accounts:login-microsoft', 'accounts:remove', 'accounts:upload-skin', 'accounts:set-skin', 'accounts:set-cape', 'accounts:set-cosmetic',
   'wardrobe:list', 'wardrobe:import', 'wardrobe:remove',
   'boost:analyze',
   'social:status', 'social:connect', 'social:friends', 'social:requests', 'social:send-request', 'social:respond',

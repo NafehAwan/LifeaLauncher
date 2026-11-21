@@ -3,7 +3,7 @@
  * tests use the global fetch or a stub.
  */
 let fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args);
-let userAgent = 'LifeaLauncher (+https://github.com/nafehawan/lifealauncher)';
+let userAgent = 'LifeaLauncher (+https://github.com/cravewhoo/LifeaLauncher-updated)';
 
 export function setFetch(impl: typeof fetch): void {
   fetchImpl = impl;

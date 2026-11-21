@@ -1,9 +1,10 @@
 import { memo, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Play, Users } from 'lucide-react';
+import { Play, Star, Users } from 'lucide-react';
 import type { MotdSegment, ServerStatus } from '@shared/types';
 import { call } from '../lib/ipc';
-import { cn } from '../lib/util';
+import { startLaunch } from '../stores/launch';
+import { asset, cn } from '../lib/util';
 import { attempt } from '../stores/toasts';
 
 export function Motd({ segments, className }: { segments?: MotdSegment[]; className?: string }) {
@@ -50,16 +51,17 @@ export function useServerStatus(address: string) {
   });
 }
 
-export const ServerCard = memo(function ServerCard({ name, address, instanceId, subtitle }: { name: string; address: string; instanceId?: string; subtitle?: string }) {
+export const ServerCard = memo(function ServerCard({ name, address, instanceId, subtitle, partnered = false }: { name: string; address: string; instanceId?: string; subtitle?: string; partnered?: boolean }) {
   const { data: st, isLoading } = useServerStatus(address);
   return (
-    <div className="glass border border-line rounded-lg p-3 flex gap-3 items-center">
+    <div className={cn('glass border border-line rounded-xl p-3 flex gap-3 items-center', partnered && 'border-accent/25 bg-accent-soft')}>
       <div className="w-11 h-11 rounded-md bg-bg3 border border-line-strong overflow-hidden shrink-0 grid place-items-center">
-        {st?.favicon ? <img src={st.favicon} alt="" className="w-full h-full pixelated" /> : <span className="font-pixel text-xs text-t3">{name.slice(0, 2).toUpperCase()}</span>}
+        {st?.favicon ? <img src={st.favicon} alt="" className="w-full h-full pixelated" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = asset('icons/lifea-logo.png'); }} /> : <span className="font-pixel text-xs text-t3">{name.slice(0, 2).toUpperCase()}</span>}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold truncate">{name}</span>
+          {partnered && <Star className="h-3.5 w-3.5 shrink-0 fill-current text-accent-hi" aria-label="Official partnered server" />}
           {isLoading ? <span className="w-8 h-3 skeleton rounded" /> : <PingBars ms={st?.online ? st.pingMs : undefined} />}
         </div>
         {st?.online ? (
@@ -78,7 +80,7 @@ export const ServerCard = memo(function ServerCard({ name, address, instanceId, 
         {instanceId && (
           <button
             type="button"
-            onClick={() => void attempt(() => call('launch:start', instanceId, { server: address }), 'Could not join')}
+            onClick={() => void attempt(() => startLaunch(instanceId, { server: address }), 'Could not join')}
             className="h-7 px-2.5 rounded-md bg-accent-soft text-accent-hi text-xs font-semibold hover:bg-accent hover:text-white inline-flex items-center gap-1 transition"
           >
             <Play className="w-3 h-3" fill="currentColor" /> Join

@@ -6,7 +6,7 @@ import type { InstanceSummary } from '@shared/types';
 import { call } from '../lib/ipc';
 import { cn, formatPlaytime, loaderName, relativeTime } from '../lib/util';
 import { qk, useInstances } from '../hooks/queries';
-import { isActive, useLaunch } from '../stores/launch';
+import { isActive, startLaunch, useLaunch } from '../stores/launch';
 import { useSettings } from '../stores/settings';
 import { useUi } from '../stores/ui';
 import { attempt, toast } from '../stores/toasts';
@@ -78,7 +78,7 @@ const ProfileCard = memo(function ProfileCard({ inst, selected, onDelete }: { in
             disabled={active}
             onClick={(e) => {
               e.stopPropagation();
-              void attempt(() => call('launch:start', inst.id), 'Could not start Minecraft');
+              void attempt(() => startLaunch(inst.id), 'Could not start Minecraft');
             }}
             className="w-9 h-9 rounded-md bg-accent text-white grid place-items-center opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent-hi transition disabled:opacity-40"
           >

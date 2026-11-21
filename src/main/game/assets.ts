@@ -14,6 +14,12 @@ export async function loadAssetIndex(version: VersionJson): Promise<{ id: string
   if (!(await isUpToDate(task))) await downloadFile(task);
   const index = await readJson<AssetIndex>(task.path);
   if (!index) throw new Error(`Asset index ${ref.id} is unreadable.`);
+  if (!index.objects || typeof index.objects !== 'object' || Array.isArray(index.objects)) throw new Error(`Asset index ${ref.id} is invalid: expected an objects map.`);
+  for (const [name, object] of Object.entries(index.objects)) {
+    if (!object || typeof object.hash !== 'string' || !/^[a-f0-9]{40}$/i.test(object.hash) || typeof object.size !== 'number') {
+      throw new Error(`Asset index ${ref.id} contains invalid metadata for ${name}.`);
+    }
+  }
   return { id: ref.id, index };
 }
 

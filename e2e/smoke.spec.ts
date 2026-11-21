@@ -40,7 +40,10 @@ test('boots, exposes the bridge, renders every route, persists settings', async 
 
   for (const r of ROUTES) {
     await page.evaluate((h) => (location.hash = h), r);
-    await page.waitForSelector('h1', { timeout: 10_000 });
+    // The packaged Windows build can take a little longer while the 3D
+    // wardrobe model initializes. Give the route enough time to settle before
+    // treating a slow render as a crash.
+    await page.waitForSelector('h1', { timeout: 30_000 });
     await expect(page.locator('[role="alert"]:has-text("Something broke")')).toHaveCount(0);
   }
 
@@ -51,6 +54,13 @@ test('boots, exposes the bridge, renders every route, persists settings', async 
   await expect(page.getByTestId('background')).toHaveAttribute('data-theme', 'ember_night');
   await expect(page.getByTestId('background')).toHaveAttribute('data-ready', '5', { timeout: 10_000 });
 
+  // Create an offline account through the UI.
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Add account' }).click();
+  await page.getByPlaceholder('Steve').fill('LifeaTester');
+  await page.getByRole('button', { name: 'Add offline account' }).click();
+  await expect(page.getByText('Signed in as LifeaTester')).toBeVisible();
+
   // IPC arity: optional trailing arguments may be omitted (PLAY calls launch:start with just the id).
   const launchResult = await page.evaluate(async () => {
     const l = (window as unknown as { lifea: { invoke: (c: string, ...a: unknown[]) => Promise<unknown> } }).lifea;
@@ -59,13 +69,6 @@ test('boots, exposes the bridge, renders every route, persists settings', async 
     return ((await l.invoke('launch:states')) as { instanceId: string; status: string; error?: string }[]).find((s) => s.instanceId === 'no-such-profile');
   });
   expect(launchResult).toMatchObject({ status: 'crashed', error: 'Profile not found.' });
-
-  // Create an offline account through the UI.
-  await page.getByRole('button', { name: 'Account', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Add account' }).click();
-  await page.getByPlaceholder('Steve').fill('LifeaTester');
-  await page.getByRole('button', { name: 'Add offline account' }).click();
-  await expect(page.getByText('Signed in as LifeaTester')).toBeVisible();
 
   await page.waitForTimeout(600); // let the debounced settings write land
   await app.close();

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Camera, ChevronLeft, ChevronRight, Copy, FolderOpen, Trash2, X } from 'lucide-react';
 import type { Screenshot } from '@shared/types';
 import { call } from '../lib/ipc';
-import { relativeTime } from '../lib/util';
+import { asset, relativeTime } from '../lib/util';
 import { useInstances } from '../hooks/queries';
 import { attempt, toast } from '../stores/toasts';
 import { EmptyState, IconButton, PageHeader, Skeleton } from '../components/ui/core';
@@ -30,7 +30,7 @@ export default function Screenshots() {
         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
           {list.map((s, i) => (
             <button key={`${s.instanceId}/${s.file}`} type="button" onClick={() => setOpen(i)} className="group relative rounded-lg overflow-hidden border border-line hover:border-line-strong transition aspect-video bg-bg2">
-              <img src={s.url} alt={s.file} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+              <img src={s.url} alt={s.file} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = asset('icons/lifea-logo.png'); }} />
               <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent text-left opacity-0 group-hover:opacity-100 transition">
                 <div className="text-xs font-medium truncate">{name(s.instanceId)}</div>
                 <div className="text-2xs text-t2">{relativeTime(s.taken)}</div>
@@ -54,7 +54,7 @@ export default function Screenshots() {
           </div>
           <div className="flex-1 flex items-center justify-center gap-4 px-4 pb-6 min-h-0">
             <IconButton icon={ChevronLeft} label="Previous" disabled={open === 0} onClick={() => setOpen((o) => (o! > 0 ? o! - 1 : o))} />
-            <img src={cur.url} alt={cur.file} className="max-h-full max-w-[85vw] rounded-lg" />
+            <img src={cur.url} alt={cur.file} className="max-h-full max-w-[85vw] rounded-lg" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = asset('icons/lifea-logo.png'); }} />
             <IconButton icon={ChevronRight} label="Next" disabled={open === list.length - 1} onClick={() => setOpen((o) => (o! < list.length - 1 ? o! + 1 : o))} />
           </div>
         </div>

@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, Download, ExternalLink, Heart, Loader2, Package, Search, X } from 'lucide-react';
 import type { BrowseQuery, InstanceSummary, ModrinthHit, ProjectType } from '@shared/types';
 import { call } from '../lib/ipc';
-import { cn, formatCompact, loaderName } from '../lib/util';
+import { asset, cn, formatCompact, loaderName } from '../lib/util';
 import { qk, useSelectedInstance } from '../hooks/queries';
 import { attempt, toast } from '../stores/toasts';
 import { Button, Chip, EmptyState, ErrorCard, Input, PageHeader, Skeleton } from '../components/ui/core';
@@ -75,7 +75,7 @@ const HitCard = memo(function HitCard({ hit, inst, busy, done, onInstall, onOpen
     <div className="surface p-4 flex flex-col gap-3 hover:border-line-strong transition">
       <button type="button" onClick={onOpen} className="flex gap-3 text-left">
         {hit.icon_url ? (
-          <img src={hit.icon_url} alt="" loading="lazy" decoding="async" width={56} height={56} className="w-14 h-14 rounded-lg bg-bg3 shrink-0 object-cover" />
+          <img src={hit.icon_url} alt="" loading="lazy" decoding="async" width={56} height={56} className="w-14 h-14 rounded-lg bg-bg3 shrink-0 object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = asset('icons/lifea-logo.png'); }} />
         ) : (
           <div className="w-14 h-14 rounded-lg bg-bg3 grid place-items-center shrink-0"><Package className="w-6 h-6 text-t3" /></div>
         )}

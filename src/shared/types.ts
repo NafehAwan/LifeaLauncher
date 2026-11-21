@@ -189,6 +189,12 @@ export interface Account {
   skinUrl?: string;
   skinVariant?: 'classic' | 'slim';
   capeUrl?: string;
+  /** Locally selected cape texture; rendered by the bundled LifeaCore client mod only. */
+  localCapeFile?: string;
+  /** Locally selected skin PNG; applied to the account preview and bundled LifeaCore profile. */
+  localSkinFile?: string;
+  /** Locally equipped LifeaCore cosmetics, passed only to a matching bundled client mod. */
+  localCosmetics?: Partial<Record<'wings' | 'hat' | 'bandana', string>>;
   addedAt: number;
 }
 
@@ -370,7 +376,7 @@ export interface DirectMessage {
   sentAt: number;
 }
 
-export type CosmeticType = 'cape' | 'wings' | 'hat' | 'bandana' | 'pet' | 'emote';
+export type CosmeticType = 'cape' | 'wings' | 'hat' | 'bandana' | 'bodywear' | 'pet' | 'emote';
 export interface CosmeticItem {
   id: string;
   name: string;

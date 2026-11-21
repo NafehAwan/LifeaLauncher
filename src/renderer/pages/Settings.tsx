@@ -201,7 +201,7 @@ export default function Settings() {
                   </div>
                 ))}
                 <div><Button icon={Plus} variant="primary" onClick={() => useUi.getState().set({ addAccount: true })}>Add account</Button></div>
-                {!info?.msaConfigured && <p className="text-xs text-t3">Microsoft login needs a Mojang-approved Azure app ID set at build time (LIFEA_MSA_CLIENT_ID). Offline accounts work without it.</p>}
+                {!info?.msaConfigured && <p className="text-xs text-t3">Microsoft sign-in is unavailable in this build. Offline accounts still work without it.</p>}
               </div>
             </Group>
           )}
@@ -251,10 +251,10 @@ export default function Settings() {
           {tab === 'about' && (
             <Group title="About">
               <div className="py-4 flex items-center gap-4">
-                <img src={asset('icons/logo.svg')} alt="" className="w-14 h-14 pixelated" />
+                <img src={asset('icons/lifea-logo.png')} alt="" className="w-14 h-14 pixelated" />
                 <div>
                   <div className="font-pixel text-lg">LifeaLauncher</div>
-                  <div className="text-xs text-t3 tnum">Version {info?.version} · Electron {info?.electron} · {info?.platform}/{info?.arch}</div>
+                  <div className="text-xs text-t3 tnum">Version {info?.version} · {info?.platform}/{info?.arch}</div>
                 </div>
               </div>
               <Row title="Updates" hint={updater.status === 'disabled' ? 'Updates are disabled in development builds.' : updater.status === 'none' ? 'You are on the latest version.' : updater.status === 'error' ? updater.error : updater.status === 'ready' ? `Version ${updater.version} is ready.` : updater.status}>
@@ -263,7 +263,6 @@ export default function Settings() {
               <div className="py-4 text-xs text-t3 leading-relaxed">
                 Not affiliated with Mojang or Microsoft. Minecraft is a trademark of Mojang AB. Mods and modpacks are provided by Modrinth and their authors. Monocraft font by Idrees Hassan (OFL).
                 <div className="mt-2 flex gap-3">
-                  <button type="button" className="link" onClick={() => void call('app:open-external', 'https://github.com/nafehawan/lifealauncher')}>Source code</button>
                   <button type="button" className="link" onClick={() => void call('app:open-external', 'https://modrinth.com')}>Modrinth</button>
                 </div>
               </div>

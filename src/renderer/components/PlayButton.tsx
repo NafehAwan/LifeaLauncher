@@ -4,14 +4,37 @@
  */
 import { useEffect, useState } from 'react';
 import { ChevronDown, Loader2, Play, Square } from 'lucide-react';
-import type { InstanceSummary } from '@shared/types';
+import type { InstanceSummary, LaunchState } from '@shared/types';
 import { call } from '../lib/ipc';
 import { cn, formatBytes, formatDuration, loaderName } from '../lib/util';
-import { isActive, useLaunch } from '../stores/launch';
+import { isActive, startLaunch, useLaunch } from '../stores/launch';
 import { attempt } from '../stores/toasts';
 import { useUi } from '../stores/ui';
 import { Menu } from './ui/overlay';
 import { useSettings } from '../stores/settings';
+
+const STAGES = [
+  { label: 'Prepare', match: (s: LaunchState) => s.status === 'preparing' || (s.status === 'downloading' && /java/i.test(s.phase)) },
+  { label: 'Download', match: (s: LaunchState) => s.status === 'downloading' },
+  { label: 'Install', match: (s: LaunchState) => s.status === 'installing' },
+  { label: 'Start', match: (s: LaunchState) => s.status === 'launching' },
+];
+
+/** Small step indicator so a long first launch reads as progress, not a frozen bar. */
+function LaunchSteps({ state }: { state: LaunchState }) {
+  const current = STAGES.findIndex((stage) => stage.match(state));
+  return (
+    <ol className="flex items-center gap-1.5 mt-2" aria-label="Launch steps">
+      {STAGES.map((stage, i) => (
+        <li key={stage.label} className={cn('flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider', i === current ? 'text-t1' : i < current ? 'text-accent-hi' : 'text-t3')}>
+          <span className={cn('w-1.5 h-1.5 rounded-full', i === current ? 'bg-accent-hi animate-pulse' : i < current ? 'bg-accent' : 'bg-line-strong')} />
+          {stage.label}
+          {i < STAGES.length - 1 && <span className="w-4 h-px bg-line-strong ml-0.5" />}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function useNow(active: boolean) {
   const [now, setNow] = useState(Date.now());
@@ -31,7 +54,7 @@ export function PlayButton({ instance, instances, compact }: { instance: Instanc
   const height = compact ? 'h-12' : 'h-16';
   const width = compact ? 'w-[220px]' : 'w-[300px]';
 
-  const start = () => void attempt(() => call('launch:start', instance.id), 'Could not start Minecraft');
+  const start = () => void attempt(() => startLaunch(instance.id), 'Could not start Minecraft');
   const stop = () => void call('launch:cancel', instance.id);
 
   if (active && !running && state) {
@@ -41,6 +64,7 @@ export function PlayButton({ instance, instances, compact }: { instance: Instanc
         ? `${state.filesDone.toLocaleString()} / ${state.filesTotal.toLocaleString()}${state.speedBps > 0 ? ` · ${formatBytes(state.speedBps)}/s` : ''}${state.etaSec > 0 ? ` · ${formatDuration(state.etaSec)} left` : ''}`
         : state.phase;
     return (
+      <div>
       <div className="flex items-center gap-3" data-testid="play-progress">
         <div className={cn('relative overflow-hidden rounded-lg bg-bg2 border border-line-strong flex flex-col justify-center px-5', height, width)} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={state.phase}>
           <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-accent-lo/70 to-accent/60 transition-[width] duration-3 ease-out" style={{ width: `${Math.max(3, pct)}%` }} />
@@ -56,6 +80,8 @@ export function PlayButton({ instance, instances, compact }: { instance: Instanc
         <button type="button" onClick={stop} className="text-sm font-semibold text-t2 hover:text-danger">
           Cancel
         </button>
+      </div>
+      {!compact && <LaunchSteps state={state} />}
       </div>
     );
   }

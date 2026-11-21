@@ -20,9 +20,18 @@ export function updaterState(): UpdaterState {
 export async function initUpdater(): Promise<void> {
   if (!app.isPackaged || process.env.LIFEA_DISABLE_UPDATER) return set({ status: 'disabled' });
   try {
-    updater = (await import('electron-updater')).autoUpdater;
+    const module = await import('electron-updater') as typeof import('electron-updater') & {
+      default?: { autoUpdater?: typeof import('electron-updater').autoUpdater };
+    };
+    // electron-updater is CommonJS; depending on the production bundler, its named
+    // export may be placed under `default`. Resolve both forms before configuration.
+    updater = module.autoUpdater ?? module.default?.autoUpdater ?? null;
   } catch (e) {
     log.warn('electron-updater unavailable', e);
+    return set({ status: 'disabled' });
+  }
+  if (!updater) {
+    log.warn('electron-updater loaded without an autoUpdater export; update checks disabled.');
     return set({ status: 'disabled' });
   }
   updater.autoDownload = true;

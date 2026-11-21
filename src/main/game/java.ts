@@ -41,6 +41,22 @@ export async function probeJava(path: string): Promise<JavaRuntime | null> {
   }
 }
 
+/** Find a usable matching JVM already on the machine before downloading a managed runtime. */
+export async function detectJava(major: number): Promise<string | null> {
+  const managed = (await listRuntimes()).find((runtime) => runtime.major === major);
+  if (managed && (await fs.stat(managed.path).catch(() => null))) return managed.path;
+  const home = process.env.JAVA_HOME;
+  const candidates = [
+    ...(home ? [join(home, 'bin', isWin ? 'javaw.exe' : 'java')] : []),
+    'java',
+  ];
+  for (const candidate of candidates) {
+    const runtime = await probeJava(candidate);
+    if (runtime?.major === major) return runtime.path;
+  }
+  return null;
+}
+
 /** Mojang platform key for the runtime manifest, or null when Mojang ships none (e.g. linux-arm64). */
 export function mojangPlatform(): string | null {
   const os = detectOs();

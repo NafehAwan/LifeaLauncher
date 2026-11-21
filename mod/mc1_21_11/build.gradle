@@ -1,0 +1,48 @@
+plugins {
+    id 'fabric-loom' version '1.14.10'
+}
+
+version = "${rootProject.mod_version}+mc1.21.11"
+group = rootProject.maven_group
+base { archivesName = 'lifea-core' }
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.21.11'
+    mappings 'net.fabricmc:yarn:1.21.11+build.6:v2'
+    modImplementation 'net.fabricmc:fabric-loader:0.18.1'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.141.6+1.21.11'
+}
+
+sourceSets {
+    main {
+        java.srcDir(rootProject.file('../src/main/java'))
+        resources.srcDir(rootProject.file('../src/main/resources'))
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'minecraft_version', '1.21.11'
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version, 'minecraft_version': '1.21.11'
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+    from(rootProject.file('../LICENSE')) { rename { "${it}_lifea-core" } }
+}

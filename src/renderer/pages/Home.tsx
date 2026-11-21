@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Globe2, Newspaper, Plus, UserPlus } from 'lucide-react';
+import { Newspaper, Plus, UserPlus } from 'lucide-react';
+import { PARTNERED_SERVERS } from '@shared/constants';
 import { call } from '../lib/ipc';
 import { cn, loaderName, relativeTime } from '../lib/util';
-import { useSelectedAccount, useSelectedInstance, useServers } from '../hooks/queries';
+import { useSelectedAccount, useSelectedInstance } from '../hooks/queries';
 import { useSettings } from '../stores/settings';
-import { anyRunning, useLaunch } from '../stores/launch';
+import { anyRunning, startLaunch, useLaunch } from '../stores/launch';
 import { useUi } from '../stores/ui';
 import { attempt } from '../stores/toasts';
 import { Background, type CharacterAnim } from '../components/shell/Background';
@@ -50,8 +51,6 @@ export default function Home() {
   const account = useSelectedAccount();
   const state = useLaunch((s) => (selected ? s.states[selected.id] : undefined));
   const gameRunning = useLaunch((s) => anyRunning(s.states));
-  const { data: servers = [] } = useServers();
-  const featured = useQuery({ queryKey: ['social', 'featured'], queryFn: () => call('social:featured'), staleTime: 600_000 });
   const news = useQuery({ queryKey: ['social', 'news'], queryFn: () => call('social:news'), staleTime: 600_000 });
   const worlds = useQuery({ queryKey: ['worlds', selected?.id], queryFn: () => call('instances:worlds', selected!.id), enabled: !!selected, staleTime: 60_000 });
   const [anim, setAnim] = useState<CharacterAnim>('idle');
@@ -95,6 +94,13 @@ export default function Home() {
               <div className="mt-6">
                 <PlayButton instance={selected} instances={instances} />
               </div>
+              {account && (
+                <div className="mt-3 text-xs text-t3 flex items-center gap-1.5">
+                  <span className={cn('w-1.5 h-1.5 rounded-full', account.type === 'msa' ? 'bg-success' : 'bg-warning')} />
+                  Playing as <span className="text-t1 font-semibold">{account.username}</span>
+                  <span>· {account.type === 'msa' ? 'Microsoft' : 'Offline'}</span>
+                </div>
+              )}
               {state && <div className="mt-4 max-w-xl"><CrashBanner state={state} /></div>}
               <button type="button" className="mt-4 self-start text-sm text-t2 hover:text-t1" onClick={() => navigate(`/instance/${selected.id}`)}>
                 Manage profile →
@@ -112,21 +118,13 @@ export default function Home() {
         <aside className="w-[340px] shrink-0 flex flex-col gap-5 overflow-y-auto pt-10 pb-16 pr-1">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="label">Servers</h2>
+              <h2 className="label">Partnered servers</h2>
               <button type="button" className="text-xs text-accent-hi hover:underline" onClick={() => navigate('/servers')}>
-                {servers.length ? 'Manage' : '+ Add server'}
+                View all
               </button>
             </div>
             <div className="flex flex-col gap-2">
-              {servers.slice(0, 4).map((s) => <ServerCard key={s.id} name={s.name} address={s.address} instanceId={selected?.id} />)}
-              {(featured.data ?? []).filter((f) => !servers.some((s) => s.address === f.address)).slice(0, Math.max(0, 4 - servers.length)).map((f) => (
-                <ServerCard key={f.id} name={f.name} address={f.address} instanceId={selected?.id} subtitle={f.description} />
-              ))}
-              {servers.length === 0 && !featured.data?.length && (
-                <button type="button" onClick={() => navigate('/servers')} className="glass border border-dashed border-line-strong rounded-lg p-4 text-sm text-t3 hover:text-t1 flex items-center gap-2">
-                  <Globe2 className="w-4 h-4" /> Add your favourite servers to join them in one click.
-                </button>
-              )}
+              {PARTNERED_SERVERS.map((server) => <ServerCard key={server.id} name={server.name} address={server.address} instanceId={selected?.id} subtitle={server.subtitle} partnered />)}
             </div>
           </div>
 
@@ -138,7 +136,7 @@ export default function Home() {
                   <button
                     key={w.folder}
                     type="button"
-                    onClick={() => void attempt(() => call('launch:start', selected.id, { world: w.folder }), 'Could not launch')}
+                    onClick={() => void attempt(() => startLaunch(selected.id, { world: w.folder }), 'Could not launch')}
                     className="glass border border-line rounded-lg px-3 py-2.5 text-left hover:border-line-strong transition flex items-center justify-between gap-2"
                   >
                     <span className="text-sm font-medium truncate">{w.name}</span>

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CornerDownLeft, FolderOpen, Gamepad2, Navigation, Play, Plus, Search, Settings2, UserPlus } from 'lucide-react';
 import { call } from '../../lib/ipc';
+import { startLaunch } from '../../stores/launch';
 import { useInstances } from '../../hooks/queries';
 import { useUi } from '../../stores/ui';
 import { useSettings } from '../../stores/settings';
@@ -53,7 +54,7 @@ export function CommandPalette() {
     const settings: [string, string][] = [['Appearance', 'appearance'], ['Java & memory', 'java'], ['Accounts', 'accounts'], ['Downloads', 'downloads'], ['Advanced', 'advanced'], ['About & updates', 'about']];
     return [
       ...instances.flatMap((i) => [
-        { id: `play-${i.id}`, label: `Play ${i.name}`, group: 'Profiles', icon: Play, keywords: `${i.version} ${i.loader}`, run: () => void attempt(() => call('launch:start', i.id), 'Could not launch') },
+        { id: `play-${i.id}`, label: `Play ${i.name}`, group: 'Profiles', icon: Play, keywords: `${i.version} ${i.loader}`, run: () => void attempt(() => startLaunch(i.id), 'Could not launch') },
         { id: `open-${i.id}`, label: `Open ${i.name}`, group: 'Profiles', icon: Gamepad2, keywords: `${i.version} ${i.loader}`, run: go(`/instance/${i.id}`) },
       ]),
       ...pages.map(([label, to]) => ({ id: `page-${to}`, label, group: 'Go to', icon: Navigation, run: go(to) })),

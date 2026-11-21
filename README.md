@@ -24,10 +24,8 @@ Old (agent-5) vs new. Per-page comparisons are in [`docs/design`](docs/design).
 
 ## Install
 
-Download the installer for your OS from the [latest GitHub Release](https://github.com/nafehawan/lifealauncher/releases/latest)
-(the Download table at the top links each file):
-`.exe` (Windows x64/ARM64), `.dmg` (macOS universal), `.AppImage` (any Linux) or `.deb` (Debian/Ubuntu:
-`sudo apt install ./LifeaLauncher-*.deb`). The launcher updates itself (Windows, macOS, AppImage).
+Download the installer for your OS from the latest [GitHub Release](https://github.com/nafehawan/lifealauncher/releases):
+`.exe` (Windows x64/ARM64), `.dmg` (macOS universal) or `.AppImage` (Linux). The launcher updates itself.
 
 Where things live:
 
@@ -61,7 +59,7 @@ src/shared     IPC contract, types, constants, zod schemas (used by every proces
 src/main       Electron main: game engine (src/main/game), accounts, servers, social, IPC handlers, app:// protocol
 src/preload    Sandboxed preload — whitelisted invoke/on bridge only
 src/renderer   React UI (pages, components, stores)
-mod/           lifea-core Fabric mod (Gradle)
+mod/           LifeaCore (Fabric 1.21.4) and supplied Tuff Client source (Fabric 26.3)
 server/        Lifea backend (Fastify)
 test/ e2e/     Vitest unit tests (fixtures in test/fixtures) and Playwright tests against the real app
 ```
@@ -74,7 +72,7 @@ test/ e2e/     Vitest unit tests (fixtures in test/fixtures) and Playwright test
 | `LIFEA_BACKEND_URL` | Default Lifea backend for friends/cosmetics (users can override it in Settings). |
 | `CSC_LINK`, `CSC_KEY_PASSWORD` | Code-signing certificate for electron-builder (Windows/macOS). |
 
-Releases: run the **Release** workflow from the Actions tab (it tags `v<version>`), or push a `v*` tag. `.github/workflows/release.yml` builds the mod, bundles it, and publishes the installers (signed when `CSC_LINK` is set)
+Releases: run the **Release** workflow from the Actions tab (it tags `v<version>`), or push a `v*` tag. `.github/workflows/release.yml` builds LifeaCore with Java 21 and Tuff Client 26.3 with Java 25, bundles only exact-version jars, and publishes installers (signed when `CSC_LINK` is set).
 to the GitHub Release. **Never commit installers to git.**
 
 ### Assets

@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"id": "tuff-test",
+	"version": "1.0.0",
+	"name": "Tuff Client tests",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": ["net.tuffclient.test.TuffClientGameTest"]
+	},
+	"depends": {
+		"tuff": "*"
+	}
+}

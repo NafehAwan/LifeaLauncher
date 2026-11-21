@@ -52,7 +52,7 @@ export function TitleBar() {
   return (
     <header className="drag h-10 shrink-0 flex items-center gap-3 pl-4 pr-1 bg-bg1 border-b border-line relative z-40">
       <div className={cn('flex items-center gap-2', isMac && 'pl-16')}>
-        <img src={asset('icons/logo.svg')} alt="" className="w-5 h-5 pixelated" />
+        <img src={asset('icons/lifea-logo.png')} alt="" className="w-5 h-5 pixelated" />
         <span className="font-pixel text-[13px] tracking-[0.2em] text-t1">LIFEA</span>
       </div>
       <div className="flex-1 flex justify-center">

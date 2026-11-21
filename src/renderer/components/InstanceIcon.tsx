@@ -1,6 +1,6 @@
 /** Pixel-art profile icons drawn as crisp 8×8 SVGs — no network, no image files. */
 import { memo } from 'react';
-import { cn } from '../lib/util';
+import { asset, cn } from '../lib/util';
 
 // Each icon: palette + 8 rows of 8 chars ('.' = transparent).
 const ICONS: Record<string, { p: Record<string, string>; rows: string[] }> = {
@@ -14,9 +14,10 @@ const ICONS: Record<string, { p: Record<string, string>; rows: string[] }> = {
   netherite: { p: { a: '#4a3d40', b: '#2b2224', c: '#6b5a5e', r: '#e11d2e' }, rows: ['aaaaaaaa', 'abbbbbba', 'abcbbcba', 'abbrrbba', 'abbrrbba', 'abcbbcba', 'abbbbbba', 'aaaaaaaa'] },
 };
 
-export const INSTANCE_ICON_IDS = Object.keys(ICONS);
+export const INSTANCE_ICON_IDS = ['lifea', ...Object.keys(ICONS)];
 
 export const InstanceIcon = memo(function InstanceIcon({ icon, size = 48, className }: { icon: string; size?: number; className?: string }) {
+  if (icon === 'lifea') return <div className={cn('grid place-items-center rounded-[12px] bg-bg1 border border-line-strong shrink-0 overflow-hidden', className)} style={{ width: size, height: size }}><img src={asset('icons/lifea-logo.png')} alt="" className="w-full h-full object-cover" /></div>;
   const def = ICONS[icon] ?? ICONS.grass;
   const rects: JSX.Element[] = [];
   def.rows.forEach((row, y) =>

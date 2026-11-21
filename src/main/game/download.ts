@@ -36,6 +36,8 @@ export function setConcurrency(n: number): void {
 }
 
 const BACKOFF = [500, 1500, 4000];
+/** A connection that delivers no bytes for this long is dropped and retried instead of hanging the launch forever. */
+const STALL_MS = 30_000;
 
 async function sha1File(path: string): Promise<string> {
   const hash = createHash('sha1');
@@ -64,14 +66,28 @@ export async function downloadFile(task: DownloadTask, signal?: AbortSignal, onB
     if (signal?.aborted) throw abortError();
     const part = `${task.path}.part`;
     let counted = 0;
+    const stall = new AbortController();
+    let stalled = false;
+    let stallTimer: NodeJS.Timeout | undefined;
+    const kick = () => {
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        stalled = true;
+        stall.abort();
+      }, STALL_MS);
+    };
+    const onAbort = () => stall.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
     try {
       await fs.mkdir(dirname(task.path), { recursive: true });
-      const res = await request(task.url, { signal });
+      kick();
+      const res = await request(task.url, { signal: stall.signal });
       if (!res.body) throw new Error(`Empty body for ${task.url}`);
       const hash = createHash('sha1');
       let size = 0;
       const meter = new Transform({
         transform(chunk: Buffer, _enc, cb) {
+          kick();
           hash.update(chunk);
           size += chunk.length;
           counted += chunk.length;
@@ -79,7 +95,7 @@ export async function downloadFile(task: DownloadTask, signal?: AbortSignal, onB
           cb(null, chunk);
         },
       });
-      await pipeline(Readable.fromWeb(res.body as unknown as WebReadableStream), meter, createWriteStream(part), { signal });
+      await pipeline(Readable.fromWeb(res.body as unknown as WebReadableStream), meter, createWriteStream(part), { signal: stall.signal });
       if (task.size !== undefined && size !== task.size) throw new Error(`Size mismatch for ${task.name ?? task.url} (${size} ≠ ${task.size})`);
       const digest = hash.digest('hex');
       if (task.sha1 && digest !== task.sha1.toLowerCase()) throw new Error(`SHA-1 mismatch for ${task.name ?? task.url}`);
@@ -88,11 +104,14 @@ export async function downloadFile(task: DownloadTask, signal?: AbortSignal, onB
     } catch (e) {
       await fs.unlink(part).catch(() => undefined);
       if (counted) onBytes?.(-counted);
-      if (isAbort(e) || signal?.aborted) throw abortError();
-      lastErr = e;
+      if (signal?.aborted || (isAbort(e) && !stalled)) throw abortError();
+      lastErr = stalled ? new Error(`Download stalled for ${task.name ?? task.url} (no data for ${STALL_MS / 1000}s)`) : e;
       // 404/403 will not fix themselves.
       if (e instanceof HttpError && (e.status === 404 || e.status === 403 || e.status === 410)) break;
       if (attempt < BACKOFF.length) await sleep(e instanceof HttpError && e.retryAfterMs ? e.retryAfterMs : BACKOFF[attempt], signal);
+    } finally {
+      clearTimeout(stallTimer);
+      signal?.removeEventListener('abort', onAbort);
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));

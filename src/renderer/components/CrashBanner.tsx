@@ -42,9 +42,22 @@ export function CrashBanner({ state, compact }: { state: LaunchState; compact?: 
         <div className="font-semibold text-t1">{crash.title}</div>
         <div className="text-sm text-t2 mt-0.5">{crash.detail}</div>
         {!compact && (
-          <div className="flex gap-2 mt-3">
+          <div className="flex flex-wrap gap-2 mt-3">
             {crash.fix && <Button size="sm" variant="primary" onClick={() => void fix()}>{crash.fix.label}</Button>}
             <Button size="sm" variant="ghost" onClick={() => navigate('/console')}>View log</Button>
+            <Button size="sm" variant="ghost" onClick={() => void attempt(() => call('instances:open-folder', state.instanceId, 'logs'), 'Could not open logs')}>Open logs folder</Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void attempt(async () => {
+                await call('app:copy', `${crash.title}
+${crash.detail}${state.exitCode != null ? `
+Exit code: ${state.exitCode}` : ''}`);
+                toast.success('Error copied');
+              }, 'Could not copy')}
+            >
+              Copy error
+            </Button>
           </div>
         )}
       </div>

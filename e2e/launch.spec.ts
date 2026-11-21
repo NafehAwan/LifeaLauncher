@@ -28,13 +28,17 @@ for (const target of ['vanilla', 'lifea-latest'] as const) {
       if (state && ['running', 'crashed', 'exited', 'cancelled'].includes(state.status)) break;
       await page.waitForTimeout(2000);
     }
-    const logs = ((await inv('launch:logs')) as LogLine[]).filter((l) => l.instanceId === id).map((l) => l.msg);
-    console.log(logs.slice(-40).join('\n'));
+    const gameLogs = async () => ((await inv('launch:logs')) as LogLine[]).filter((l) => l.instanceId === id).map((l) => l.msg);
     expect(state?.status, state?.error ?? state?.crash?.detail).toBe('running');
+    // Modded profiles can take well over the 15 s "running" fallback to open their window, so wait for the marker.
+    const marker = /Setting user: LifeaCI|Backend library: LWJGL/;
+    let logs = await gameLogs();
+    for (const until = Date.now() + 120_000; !marker.test(logs.join('\n')) && Date.now() < until; logs = await gameLogs()) await page.waitForTimeout(2000);
+    console.log(logs.slice(-40).join('\n'));
+    expect(logs.join('\n')).toMatch(marker);
     await page.waitForTimeout(20_000); // must stay alive
     state = ((await inv('launch:states')) as LaunchState[]).find((s) => s.instanceId === id);
     expect(state?.status).toBe('running');
-    expect(logs.join('\n')).toMatch(/Setting user: LifeaCI|Backend library: LWJGL/);
     await inv('launch:cancel', id);
     await app.close();
   });
