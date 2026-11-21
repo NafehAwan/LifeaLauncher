@@ -17,9 +17,20 @@ dependencies {
     modImplementation 'net.fabricmc.fabric-api:fabric-api:0.141.6+1.21.11'
 }
 
+// Shared LifeaCore sources live in ../src/main/java. Files that need 1.21.11 APIs have a copy under src/main/java here;
+// the shared copy of those files is left out so each class is compiled exactly once.
+def sharedJava = rootProject.file('../src/main/java')
+def overrideJava = file('src/main/java')
+def overridden = fileTree(overrideJava).include('**/*.java').files.collect { overrideJava.toPath().relativize(it.toPath()).toString().replace('\\', '/') }
+
+def syncSharedSources = tasks.register('syncSharedSources', Sync) {
+    from(sharedJava) { exclude(overridden) }
+    into(layout.buildDirectory.dir('generated/shared-java'))
+}
+
 sourceSets {
     main {
-        java.srcDir(rootProject.file('../src/main/java'))
+        java.srcDir(syncSharedSources)
         resources.srcDir(rootProject.file('../src/main/resources'))
     }
 }
@@ -45,4 +56,22 @@ java {
 
 jar {
     from(rootProject.file('../LICENSE')) { rename { "${it}_lifea-core" } }
+}
+
+// Client game test: boots Minecraft 1.21.11 with LifeaCore and exercises every feature (see src/gametest).
+// Run with: xvfb-run -a ./gradlew runClientGameTest
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'lifea-core-test'
+        enableGameTests = false
+        eula = true
+    }
+}
+
+def testCape = rootProject.file('../../resources/default-capes/lifea-default-crimson.png')
+afterEvaluate {
+    tasks.matching { it.name == 'runClientGameTest' }.configureEach {
+        jvmArgs("-Dlifea.cape.path=${testCape.absolutePath}")
+    }
 }

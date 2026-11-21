@@ -1,5 +1,6 @@
 package gg.lifea.core;
 
+import gg.lifea.core.compat.Compat;
 import gg.lifea.core.config.LifeaConfig;
 import gg.lifea.core.feature.Features;
 import gg.lifea.core.feature.Trackers;
@@ -18,7 +19,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
 import gg.lifea.core.render.LocalCosmeticFeatureRenderer;
@@ -26,7 +26,6 @@ import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.ActionResult;
 import org.lwjgl.glfw.GLFW;
 
@@ -43,6 +42,8 @@ public final class LifeaCore implements ClientModInitializer {
     private static KeyBinding freelookKey;
     private static KeyBinding waypointKey;
     private static long lastFrameNanos;
+    /** Frames the Lifea HUD has drawn (read by the client game test to prove the HUD hook runs). */
+    public static volatile long hudFrames;
     private static int saveTicks;
 
     @Override
@@ -55,10 +56,10 @@ public final class LifeaCore implements ClientModInitializer {
         Modules.register(FULLBRIGHT);
         Modules.register(CROSSHAIR);
 
-        menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.lifea.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "category.lifea"));
-        zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.lifea.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.lifea"));
-        freelookKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.lifea.freelook", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, "category.lifea"));
-        waypointKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.lifea.waypoint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.lifea"));
+        menuKey = KeyBindingHelper.registerKeyBinding(Compat.key("key.lifea.menu", GLFW.GLFW_KEY_RIGHT_SHIFT));
+        zoomKey = KeyBindingHelper.registerKeyBinding(Compat.key("key.lifea.zoom", GLFW.GLFW_KEY_C));
+        freelookKey = KeyBindingHelper.registerKeyBinding(Compat.key("key.lifea.freelook", GLFW.GLFW_KEY_LEFT_ALT));
+        waypointKey = KeyBindingHelper.registerKeyBinding(Compat.key("key.lifea.waypoint", GLFW.GLFW_KEY_B));
 
         ServerRules.register();
 
@@ -77,11 +78,12 @@ public final class LifeaCore implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 
-        HudRenderCallback.EVENT.register((ctx, tickCounter) -> {
+        Compat.registerHud((ctx, tickCounter) -> {
             MinecraftClient c = MinecraftClient.getInstance();
             long now = System.nanoTime();
             float frameMs = lastFrameNanos == 0 ? 16f : (now - lastFrameNanos) / 1_000_000f;
             lastFrameNanos = now;
+            hudFrames++;
             Trackers.frame();
             ZOOM.frame(c, frameMs);
             if (c.options.hudHidden || c.currentScreen instanceof gg.lifea.core.screen.HudEditorScreen) return;
@@ -94,7 +96,7 @@ public final class LifeaCore implements ClientModInitializer {
         });
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
-            if (world.isClient) Trackers.hitEntity();
+            if (Compat.isClient(world)) Trackers.hitEntity();
             return ActionResult.PASS;
         });
 

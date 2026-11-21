@@ -20,3 +20,7 @@ server/data
 mod/.gradle
 mod/build
 mod/run
+
+mod/mc1_21_11/.gradle
+mod/mc1_21_11/build
+mod/mc1_21_11/run

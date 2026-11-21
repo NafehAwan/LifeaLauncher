@@ -11,7 +11,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
 /** Drag HUD elements, scroll to scale, snap to a 4 px grid and screen edges. Layout saves per profile. */
-public class HudEditorScreen extends Screen {
+public class HudEditorScreen extends LifeaScreenBase {
     private static final int SNAP = 4;
     private final Screen parent;
     private HudModule dragging;
@@ -36,7 +36,7 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void drawBackdrop(DrawContext ctx) {
         ctx.fill(0, 0, width, height, 0x60000000);
         for (int x = 0; x < width; x += 32) ctx.fill(x, 0, x + 1, height, 0x14FFFFFF);
         for (int y = 0; y < height; y += 32) ctx.fill(0, y, width, y + 1, 0x14FFFFFF);
@@ -45,8 +45,7 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        renderBackground(ctx, mouseX, mouseY, delta);
+    protected void drawContent(DrawContext ctx, int mouseX, int mouseY, float delta) {
         MinecraftClient c = MinecraftClient.getInstance();
         HudModule hover = dragging != null ? dragging : at(mouseX, mouseY);
         for (Module m : Modules.all()) {
@@ -68,9 +67,9 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    protected boolean onClick(double mx, double my, int button) {
         HudModule h = at(mx, my);
-        if (h == null) return super.mouseClicked(mx, my, button);
+        if (h == null) return false;
         if (button == 1) {
             h.resetLayout();
             return true;
@@ -83,8 +82,8 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (dragging == null) return super.mouseDragged(mx, my, button, dx, dy);
+    protected boolean onDrag(double mx, double my, int button) {
+        if (dragging == null) return false;
         int w = Math.round(dragging.width * dragging.scale), h = Math.round(dragging.height * dragging.scale);
         int nx = MathHelper.clamp((int) Math.round((mx - grabX) / SNAP) * SNAP, 0, Math.max(0, width - w));
         int ny = MathHelper.clamp((int) Math.round((my - grabY) / SNAP) * SNAP, 0, Math.max(0, height - h));
@@ -96,13 +95,11 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
-        if (dragging != null) {
-            dragging.saveLayout();
-            dragging = null;
-            return true;
-        }
-        return super.mouseReleased(mx, my, button);
+    protected boolean onRelease(double mx, double my, int button) {
+        if (dragging == null) return false;
+        dragging.saveLayout();
+        dragging = null;
+        return true;
     }
 
     @Override

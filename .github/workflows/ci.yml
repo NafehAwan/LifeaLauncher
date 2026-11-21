@@ -20,16 +20,45 @@ jobs:
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '21' }
       - uses: gradle/actions/setup-gradle@v4
-      - run: bash ./gradlew build --no-daemon && (cd mc1_21_11 && bash ./gradlew build --no-daemon)
+      - name: Build LifeaCore for Minecraft 1.21.4
+        run: bash ./gradlew build --no-daemon
         working-directory: mod
+      - name: Build LifeaCore for Minecraft 1.21.11
+        run: bash ./gradlew build --no-daemon
+        working-directory: mod/mc1_21_11
+      # One flat folder: the launcher looks for <name>+mc<version>.jar directly in resources/lifea-core.
+      - name: Collect client jars
+        run: |
+          mkdir -p dist-mods
+          cp mod/build/libs/lifea-core-*+mc*.jar mod/mc1_21_11/build/libs/lifea-core-*+mc*.jar dist-mods/
+          rm -f dist-mods/*-sources.jar
+          ls -la dist-mods
+          test -f dist-mods/lifea-core-*+mc1.21.4.jar && test -f dist-mods/lifea-core-*+mc1.21.11.jar
       - uses: actions/upload-artifact@v4
         with:
           name: lifea-core
-          path: |
-            mod/build/libs/lifea-core-*+mc*.jar
-            mod/mc1_21_11/build/libs/lifea-core-*+mc*.jar
-            !mod/build/libs/*-sources.jar
+          path: dist-mods/*.jar
           if-no-files-found: error
+
+  mod-gametest:
+    name: lifea-core 1.21.11 in-game test
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri
+      # Boots Minecraft 1.21.11 with LifeaCore and drives HUD, menu, HUD editor, zoom, freelook, fullbright, cape.
+      - run: LP_NUM_THREADS=2 xvfb-run -a -s "-screen 0 1280x720x24" bash ./gradlew runClientGameTest --no-daemon
+        working-directory: mod/mc1_21_11
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lifea-core-1.21.11-screenshots
+          path: mod/mc1_21_11/run/screenshots/*.png
+          if-no-files-found: warn
 
   tuff-client:
     name: Tuff Client 26.3 mod
@@ -113,6 +142,6 @@ jobs:
       - run: npm ci && npm ci --prefix server
       - run: sudo apt-get update && sudo apt-get install -y xvfb mesa-utils
       - run: npm run build
-      - name: Launch vanilla 1.21.4 and Fabric 1.21.4 to the title screen
+      - name: Launch vanilla and Fabric profiles to the title screen
         run: LIFEA_LAUNCH_IT=1 xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test launch
         timeout-minutes: 30

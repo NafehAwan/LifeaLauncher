@@ -5,7 +5,6 @@ import gg.lifea.core.module.Module;
 import gg.lifea.core.module.Modules;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
@@ -14,7 +13,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** Right-Shift menu: a searchable grid of modules in the launcher's blood-red style. */
-public class LifeaMenuScreen extends Screen {
+public class LifeaMenuScreen extends LifeaScreenBase {
     private static final String[] TABS = { "All", "HUD", "Gameplay", "Visual" };
     private static final int CARD_W = 150;
     private static final int CARD_H = 46;
@@ -27,6 +26,16 @@ public class LifeaMenuScreen extends Screen {
 
     public LifeaMenuScreen() {
         super(Text.literal("Lifea"));
+    }
+
+    /** Current search text (read by tests). */
+    public String query() {
+        return query;
+    }
+
+    /** Centre of the "Edit HUD" button in GUI coordinates. */
+    public int[] editHudButtonCenter() {
+        return new int[] { panelX() + panelW() - 82 + 36, panelY() + 8 + 8 };
     }
 
     private int panelW() { return Math.min(width - 40, 3 * CARD_W + 2 * GAP + 24); }
@@ -48,13 +57,12 @@ public class LifeaMenuScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void drawBackdrop(DrawContext ctx) {
         ctx.fill(0, 0, width, height, Theme.OVERLAY);
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        renderBackground(ctx, mouseX, mouseY, delta);
+    protected void drawContent(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int px = panelX(), py = panelY(), pw = panelW(), ph = panelH();
         ctx.fill(px, py, px + pw, py + ph, Theme.BG2);
         ctx.fill(px, py, px + pw, py + 2, Theme.ACCENT);
@@ -110,7 +118,7 @@ public class LifeaMenuScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    protected boolean onClick(double mx, double my, int button) {
         int px = panelX(), py = panelY(), pw = panelW();
         if (mx >= px + pw - 82 && mx < px + pw - 10 && my >= py + 8 && my < py + 24) {
             MinecraftClient.getInstance().setScreen(new HudEditorScreen(this));
@@ -135,7 +143,7 @@ public class LifeaMenuScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mx, my, button);
+        return false;
     }
 
     @Override
@@ -145,17 +153,17 @@ public class LifeaMenuScreen extends Screen {
     }
 
     @Override
-    public boolean charTyped(char chr, int modifiers) {
-        if (Character.isLetterOrDigit(chr) || chr == ' ') {
-            query += chr;
+    protected boolean onChar(int codepoint) {
+        if (Character.isLetterOrDigit(codepoint) || codepoint == ' ') {
+            query += Character.toString(codepoint);
             scroll = 0;
             return true;
         }
-        return super.charTyped(chr, modifiers);
+        return false;
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    protected boolean onKey(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !query.isEmpty()) {
             query = query.substring(0, query.length() - 1);
             return true;
@@ -164,7 +172,7 @@ public class LifeaMenuScreen extends Screen {
             close();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return false;
     }
 
     @Override

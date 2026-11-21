@@ -1,5 +1,6 @@
 package gg.lifea.core.hud;
 
+import gg.lifea.core.compat.Compat;
 import com.google.gson.JsonObject;
 import gg.lifea.core.config.LifeaConfig;
 import gg.lifea.core.module.Module;
@@ -89,11 +90,9 @@ public abstract class HudModule extends Module {
         int sh = client.getWindow().getScaledHeight();
         int px = Math.round(x * sw);
         int py = Math.round(y * sh);
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(px, py, 0);
-        ctx.getMatrices().scale(scale, scale, 1f);
+        Compat.pushHud(ctx, px, py, scale);
         draw(ctx, client, preview);
-        ctx.getMatrices().pop();
+        Compat.popHud(ctx);
     }
 
     public int screenX(MinecraftClient c) {

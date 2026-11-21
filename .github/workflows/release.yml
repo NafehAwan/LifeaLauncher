@@ -27,15 +27,24 @@ jobs:
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '21' }
       - uses: gradle/actions/setup-gradle@v4
-      - run: bash ./gradlew build --no-daemon && (cd mc1_21_11 && bash ./gradlew build --no-daemon)
+      - name: Build LifeaCore for Minecraft 1.21.4
+        run: bash ./gradlew build --no-daemon
         working-directory: mod
+      - name: Build LifeaCore for Minecraft 1.21.11
+        run: bash ./gradlew build --no-daemon
+        working-directory: mod/mc1_21_11
+      # One flat folder: the launcher looks for <name>+mc<version>.jar directly in resources/lifea-core.
+      - name: Collect client jars
+        run: |
+          mkdir -p dist-mods
+          cp mod/build/libs/lifea-core-*+mc*.jar mod/mc1_21_11/build/libs/lifea-core-*+mc*.jar dist-mods/
+          rm -f dist-mods/*-sources.jar
+          ls -la dist-mods
+          test -f dist-mods/lifea-core-*+mc1.21.4.jar && test -f dist-mods/lifea-core-*+mc1.21.11.jar
       - uses: actions/upload-artifact@v4
         with:
           name: lifea-core
-          path: |
-            mod/build/libs/lifea-core-*+mc*.jar
-            mod/mc1_21_11/build/libs/lifea-core-*+mc*.jar
-            !mod/build/libs/*-sources.jar
+          path: dist-mods/*.jar
           if-no-files-found: error
 
   tuff-client:
@@ -82,6 +91,8 @@ jobs:
           # Optional: set these repository secrets to sign installers.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # Microsoft login needs Lifea's own Mojang-approved Azure app ID (README → Microsoft login).
+          LIFEA_MSA_CLIENT_ID: ${{ secrets.LIFEA_MSA_CLIENT_ID }}
           LIFEA_BACKEND_URL: ${{ vars.LIFEA_BACKEND_URL }}
       - uses: actions/upload-artifact@v4
         with:
@@ -90,6 +101,7 @@ jobs:
             release/*.exe
             release/*.dmg
             release/*.AppImage
+            release/*.deb
             release/*.blockmap
             release/latest*.yml
           if-no-files-found: error
@@ -123,11 +135,39 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { pattern: installers-*, path: release, merge-multiple: true }
       - run: ls -la release
+      # Direct download links at the top of the Release page; GitHub collapses long asset lists.
+      - name: Write download table
+        shell: bash
+        env:
+          BASE: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}
+        run: |
+          row() { [ -f "release/$2" ] && echo "| $1 | [$2]($BASE/$2) |"; return 0; }
+          v="${{ steps.tag.outputs.name }}"; v="${v#v}"; p="LifeaLauncher-$v"
+          {
+            echo "## Download"
+            echo
+            echo "| System | File |"
+            echo "|---|---|"
+            row "Windows (any PC)" "$p-win.exe"
+            row "Windows x64 only (smaller)" "$p-win-x64.exe"
+            row "Windows ARM64 only (smaller)" "$p-win-arm64.exe"
+            row "macOS (Intel + Apple silicon)" "$p-mac-universal.dmg"
+            row "Ubuntu / Debian" "$p-linux-amd64.deb"
+            row "Any Linux" "$p-linux-x86_64.AppImage"
+            echo
+            echo "The Lifea in-game client loads automatically on Fabric **1.21.11** and **1.21.4** profiles (Right Shift in game)."
+            echo
+            echo "Debian/Ubuntu: \`sudo apt install ./$p-linux-amd64.deb\`. Windows SmartScreen: *More info → Run anyway* (installer is unsigned)."
+            echo
+            echo "The \`.yml\` and \`.blockmap\` files are for the auto-updater; you don't need them."
+          } > notes.md
+          cat notes.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           target_commitish: ${{ github.sha }}
           name: LifeaLauncher ${{ steps.tag.outputs.name }}
+          body_path: notes.md
           make_latest: 'true'
           overwrite_files: true
           generate_release_notes: true
@@ -136,5 +176,6 @@ jobs:
             release/*.exe
             release/*.dmg
             release/*.AppImage
+            release/*.deb
             release/*.blockmap
             release/latest*.yml

@@ -1,5 +1,6 @@
 package gg.lifea.core.net;
 
+import gg.lifea.core.compat.Compat;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -7,8 +8,6 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.util.SkinTextures;
 import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +85,7 @@ public final class Cosmetics {
                     return null;
                 }
                 Identifier texture = Identifier.of("lifea", "cosmetics/local_cape_" + Math.max(0L, syncModified));
-                MinecraftClient.getInstance().getTextureManager().registerTexture(texture, new NativeImageBackedTexture(image));
+                MinecraftClient.getInstance().getTextureManager().registerTexture(texture, Compat.texture(texture.toString(), image));
                 localCapeTexture = texture;
             } catch (Exception e) {
                 // A missing or invalid local cosmetic must not prevent the player skin from rendering.
@@ -130,7 +129,7 @@ public final class Cosmetics {
                     image = normalized;
                 }
                 Identifier texture = Identifier.of("lifea", "skins/local_" + Math.max(0L, syncModified));
-                MinecraftClient.getInstance().getTextureManager().registerTexture(texture, new NativeImageBackedTexture(image));
+                MinecraftClient.getInstance().getTextureManager().registerTexture(texture, Compat.texture(texture.toString(), image));
                 localSkinTexture = texture;
             } catch (Exception e) {
                 LOGGER.warn("Could not load the selected local skin", e);
@@ -139,8 +138,9 @@ public final class Cosmetics {
         }
     }
 
-    public static SkinTextures.Model localSkinModel() {
-        return localSkinSlim ? SkinTextures.Model.SLIM : SkinTextures.Model.WIDE;
+    /** True when the selected local skin uses the slim (Alex) arm model. */
+    public static boolean localSkinSlim() {
+        return localSkinSlim;
     }
 
     /** Validated cosmetic id selected by the launcher for this game process. */
@@ -262,7 +262,7 @@ public final class Cosmetics {
                         return;
                     }
                     Identifier tex = Identifier.of("lifea", "cosmetics/" + id.replaceAll("[^a-z0-9_./-]", "_"));
-                    MinecraftClient.getInstance().getTextureManager().registerTexture(tex, new NativeImageBackedTexture(img));
+                    MinecraftClient.getInstance().getTextureManager().registerTexture(tex, Compat.texture(tex.toString(), img));
                     textures.put(id, tex);
                 } catch (Exception ignored) {
                     // Not a valid PNG: skip this cosmetic.

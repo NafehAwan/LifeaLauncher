@@ -22,6 +22,12 @@ jobs:
         run: |
           .\gradlew.bat build --no-daemon
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build LifeaCore for Minecraft 1.21.11
+        shell: pwsh
+        working-directory: mod/mc1_21_11
+        run: |
+          .\gradlew.bat build --no-daemon
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '25' }
       - name: Build Tuff Client for Minecraft 26.3
@@ -31,7 +37,7 @@ jobs:
       - name: Stage exact-version client mods
         shell: pwsh
         run: |
-          Get-ChildItem mod/build/libs/lifea-core-*+mc*.jar | Where-Object { $_.Name -notmatch 'sources|dev' } | Copy-Item -Destination resources/lifea-core/
+          Get-ChildItem mod/build/libs/lifea-core-*+mc*.jar, mod/mc1_21_11/build/libs/lifea-core-*+mc*.jar | Where-Object { $_.Name -notmatch 'sources|dev' } | Copy-Item -Destination resources/lifea-core/
           Get-ChildItem mod/tuff-client/build/libs/tuff-client-*+mc*.jar | Where-Object { $_.Name -notmatch 'sources|dev' } | Copy-Item -Destination resources/lifea-core/
       - uses: actions/setup-node@v4
         with:
@@ -42,6 +48,8 @@ jobs:
         shell: pwsh
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          LIFEA_MSA_CLIENT_ID: ${{ secrets.LIFEA_MSA_CLIENT_ID }}
+          LIFEA_BACKEND_URL: ${{ vars.LIFEA_BACKEND_URL }}
         run: |
           npm run build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

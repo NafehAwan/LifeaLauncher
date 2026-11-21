@@ -26,7 +26,7 @@ public abstract class AbstractClientPlayerEntityMixin {
             skin == null ? t.textureUrl() : "",
             cape == null ? t.capeTexture() : cape,
             cape == null ? t.elytraTexture() : cape,
-            skin == null ? t.model() : Cosmetics.localSkinModel(),
+            skin == null ? t.model() : Cosmetics.localSkinSlim() ? SkinTextures.Model.SLIM : SkinTextures.Model.WIDE,
             skin == null && t.secure()
         ));
     }
