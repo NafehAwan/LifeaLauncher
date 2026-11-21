@@ -2,7 +2,7 @@
 import type { BuiltinProfile, Loader, Settings, ThemeId } from './types';
 
 export const APP_NAME = 'LifeaLauncher';
-export const REPO_URL = 'https://github.com/cravewhoo/LifeaLauncher-updated';
+export const REPO_URL = 'https://github.com/nafehawan/lifealauncher';
 
 export interface ThemeDef {
   id: ThemeId;
@@ -52,7 +52,8 @@ export const PARTNERED_SERVERS = [
 export const INSTANCE_ICONS = ['grass', 'diamond', 'sword', 'pickaxe', 'tnt', 'ender', 'redstone', 'netherite'] as const;
 
 export const BUILTIN_PROFILES: { id: BuiltinProfile; name: string; version: string; loader: Loader; icon: string }[] = [
-  { id: 'lifea-latest', name: 'Lifea 1.21', version: '1.21.4', loader: 'fabric', icon: 'netherite' },
+  { id: 'lifea-1.21.11', name: 'Lifea 1.21.11', version: '1.21.11', loader: 'fabric', icon: 'netherite' },
+  { id: 'lifea-latest', name: 'Lifea 1.21.4', version: '1.21.4', loader: 'fabric', icon: 'tnt' },
   { id: 'lifea-1.20.1', name: 'Lifea 1.20.1', version: '1.20.1', loader: 'fabric', icon: 'diamond' },
   { id: 'lifea-pvp', name: 'Lifea PvP 1.8.9', version: '1.8.9', loader: 'vanilla', icon: 'sword' },
 ];

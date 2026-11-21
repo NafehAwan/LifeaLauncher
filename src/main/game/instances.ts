@@ -93,7 +93,13 @@ export async function listInstances(): Promise<InstanceSummary[]> {
   );
   return all
     .filter((x): x is InstanceSummary => !!x)
-    .sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0) || (a.builtin ? -1 : 0) - (b.builtin ? -1 : 0) || b.createdAt - a.createdAt);
+    .sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0) || builtinRank(a) - builtinRank(b) || b.createdAt - a.createdAt);
+}
+
+/** Built-in profiles first, in BUILTIN_PROFILES order (newest Minecraft first); user profiles after them. */
+function builtinRank(i: Instance): number {
+  const at = BUILTIN_PROFILES.findIndex((b) => b.id === i.builtin);
+  return at < 0 ? BUILTIN_PROFILES.length : at;
 }
 
 export async function duplicateInstance(id: string): Promise<Instance> {

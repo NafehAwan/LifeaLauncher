@@ -218,7 +218,7 @@ export default function Settings() {
           {tab === 'advanced' && (
             <>
               <Group title="Storage">
-                <Row title="Game folder" hint="Where profiles, libraries, assets and Java runtimes live. Leave empty for ~/.lifea. Restart after changing.">
+                <Row title="Game folder" hint="Where profiles, libraries, assets and Java runtimes live. Leave empty for ~/.lifea. Takes effect right away; existing files are not moved, so copy them over first if you want to keep them.">
                   <div className="flex gap-2 w-80">
                     <Input className="flex-1" value={gameDir} placeholder="~/.lifea" onChange={(e) => setGameDir(e.target.value)} />
                     <Button onClick={() => set('gameDir')(gameDir.trim())}>Save</Button>

@@ -5,7 +5,7 @@
 import WebSocket from 'ws';
 import type { CosmeticItem, CosmeticType, DirectMessage, FeaturedServer, Friend, FriendRequest, NewsItem, Presence, SocialStatus } from '@shared/types';
 import { emit } from '../core/events';
-import { getJson, postJson, request } from '../core/http';
+import { getJson, HttpError, postJson, request } from '../core/http';
 import { getSettings } from '../core/settings';
 import { log } from '../core/log';
 import { msaAccessToken, selectedAccount } from '../accounts/store';
@@ -36,14 +36,25 @@ export function socialToken(): { url: string; token: string | null; self?: { uui
   return { url: backendUrl(), token: jwt, self };
 }
 
-async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const base = backendUrl();
   if (!base) throw new Error('No Lifea backend is configured (Settings → Advanced).');
   if (!jwt) await signIn();
+  // signIn() reports why it failed in the status; surface that instead of sending "Bearer null".
+  if (!jwt) throw new Error(status.error ?? 'Not signed in to the Lifea backend.');
   const headers = { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json', ...(init.headers as Record<string, string>) };
-  const res = await request(`${base}${path}`, { ...init, headers });
-  const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  try {
+    const res = await request(`${base}${path}`, { ...init, headers });
+    const text = await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;
+  } catch (e) {
+    // The backend token lasts 12 h; sign in again once and retry instead of failing every call after that.
+    if (!retried && e instanceof HttpError && e.status === 401) {
+      jwt = null;
+      return api<T>(path, init, true);
+    }
+    throw e;
+  }
 }
 
 export async function signIn(): Promise<SocialStatus> {
@@ -68,13 +79,25 @@ export async function signIn(): Promise<SocialStatus> {
     connectRealtime();
   } catch (e) {
     jwt = null;
-    const msg = acc.type === 'offline' ? 'Friends and cosmetics need a Microsoft account (this backend does not accept offline accounts).' : (e as Error).message;
+    // Only a refusal means "offline accounts not allowed"; anything else (backend down, no internet) is reported as is.
+    const refused = e instanceof HttpError && (e.status === 403 || e.status === 404);
+    const msg = acc.type === 'offline' && refused
+      ? 'Friends and cosmetics need a Microsoft account (this backend does not accept offline accounts).'
+      : e instanceof HttpError ? `The Lifea backend refused sign-in (HTTP ${e.status}).` : `Could not reach the Lifea backend: ${(e as Error).message}`;
     setStatus({ signedIn: false, error: msg });
   }
   return status;
 }
 
+/** Account added, removed or switched: drop the old session and sign in as the selected account. */
+export async function resetSession(): Promise<SocialStatus> {
+  signOut();
+  return signIn();
+}
+
 export function signOut(): void {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
   jwt = null;
   self = undefined;
   ws?.close();
@@ -105,12 +128,14 @@ function connectRealtime(): void {
       /* ignore */
     }
   });
-  sock.on('close', () => {
+  sock.on('close', (code) => {
     if (ws !== sock) return;
     setStatus({ connected: false });
     if (!jwt) return;
     if (reconnectTimer) clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(connectRealtime, backoff);
+    // 4001 = the backend rejected our (expired) token: get a new one before reconnecting.
+    const next = code === 4001 ? () => void ((jwt = null), signIn()) : connectRealtime;
+    reconnectTimer = setTimeout(next, backoff);
     backoff = Math.min(backoff * 2, 60_000);
   });
   sock.on('error', (e) => log.debug('realtime socket error', e.message));

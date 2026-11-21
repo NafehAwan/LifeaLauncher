@@ -41,6 +41,14 @@ export async function probeJava(path: string): Promise<JavaRuntime | null> {
   }
 }
 
+async function is64BitJava(path: string): Promise<boolean> {
+  const javaCli = isWin ? path.replace(/javaw\.exe$/i, 'java.exe') : path;
+  const out = await execFileP(javaCli, ['-version'], { timeout: 15000, windowsHide: true })
+    .then(({ stdout, stderr }) => `${stdout}\n${stderr}`)
+    .catch((e: { stdout?: string; stderr?: string }) => `${e.stdout ?? ''}\n${e.stderr ?? ''}`);
+  return /64-Bit/i.test(out);
+}
+
 /** Find a usable matching JVM already on the machine before downloading a managed runtime. */
 export async function detectJava(major: number): Promise<string | null> {
   const managed = (await listRuntimes()).find((runtime) => runtime.major === major);
@@ -52,7 +60,8 @@ export async function detectJava(major: number): Promise<string | null> {
   ];
   for (const candidate of candidates) {
     const runtime = await probeJava(candidate);
-    if (runtime?.major === major) return runtime.path;
+    // A 32-bit JVM can't reserve the default 4 GB heap; only reuse 64-bit system Javas.
+    if (runtime?.major === major && (await is64BitJava(candidate))) return runtime.path;
   }
   return null;
 }

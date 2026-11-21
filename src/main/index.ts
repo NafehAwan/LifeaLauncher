@@ -98,7 +98,7 @@ async function main(): Promise<void> {
   initPaths({ userData: app.getPath('userData'), home: homedir(), gameDirSetting: () => getSettings().gameDir });
   initLog(logsDir());
   log.info(`LifeaLauncher ${app.getVersion()} (electron ${process.versions.electron}, ${process.platform}/${process.arch})`);
-  const ua = `LifeaLauncher/${app.getVersion()} (github.com/cravewhoo/LifeaLauncher-updated)`;
+  const ua = `LifeaLauncher/${app.getVersion()} (github.com/nafehawan/lifealauncher)`;
   setUserAgent(ua);
   setFetch((input, init) => net.fetch(input as string, init));
   setLauncherVersion(app.getVersion());

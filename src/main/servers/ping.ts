@@ -65,8 +65,20 @@ export async function pingServer(address: string, timeoutMs = 5000): Promise<Ser
       const body = Buffer.concat([writeVarInt(id), payload]);
       return Buffer.concat([writeVarInt(body.length), body]);
     };
-    sock.setTimeout(timeoutMs, () => finish({ online: false, error: 'Timed out' }));
-    sock.on('error', (e) => finish({ online: false, error: e.message }));
+    const online = (pingMs?: number): ServerStatus => {
+      const st = statusJson as { players?: { online?: number; max?: number }; version?: { name?: string }; description?: unknown; favicon?: string };
+      return {
+        online: true,
+        pingMs,
+        players: { online: st.players?.online ?? 0, max: st.players?.max ?? 0 },
+        version: st.version?.name,
+        motd: parseMotd(st.description),
+        favicon: typeof st.favicon === 'string' && st.favicon.startsWith('data:image/png;base64,') ? st.favicon : undefined,
+      };
+    };
+    // Some servers/proxies answer the status request but never the ping packet: that's still online.
+    sock.setTimeout(timeoutMs, () => finish(statusJson ? online() : { online: false, error: 'Timed out' }));
+    sock.on('error', (e) => finish(statusJson ? online() : { online: false, error: e.message }));
     sock.connect(target.port, target.host, () => {
       const host = Buffer.from(target.handshakeHost, 'utf8');
       const port = Buffer.alloc(2);
@@ -96,15 +108,7 @@ export async function pingServer(address: string, timeoutMs = 5000): Promise<Ser
           payload.writeBigInt64BE(BigInt(sentAt));
           sock.write(packet(0x01, payload));
         } else if (id.value === 0x01 && statusJson) {
-          const s = statusJson as { players?: { online?: number; max?: number }; version?: { name?: string }; description?: unknown; favicon?: string };
-          finish({
-            online: true,
-            pingMs: Date.now() - sentAt,
-            players: { online: s.players?.online ?? 0, max: s.players?.max ?? 0 },
-            version: s.version?.name,
-            motd: parseMotd(s.description),
-            favicon: typeof s.favicon === 'string' && s.favicon.startsWith('data:image/png;base64,') ? s.favicon : undefined,
-          });
+          finish(online(Date.now() - sentAt));
         }
       }
     });

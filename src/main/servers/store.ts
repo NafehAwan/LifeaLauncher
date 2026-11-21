@@ -57,40 +57,51 @@ export async function syncServersDat(list: Server[]): Promise<void> {
     ...list.filter((server) => !isPartnerAddress(server.address)),
   ];
   for (const inst of await listInstances()) {
-    const file = join(instanceDir(inst.id), 'servers.dat');
-    let entries: NbtValue[] = [];
     try {
-      const root = readNbt(await fs.readFile(file)).value;
-      if (root.type === 'compound' && root.value.servers?.type === 'list') entries = root.value.servers.value;
-    } catch {
-      entries = [];
+      await syncOne(join(instanceDir(inst.id), 'servers.dat'), allServers, isPartnerAddress);
+    } catch (e) {
+      // One locked or unreadable file must not stop the others (or a launch).
+      log.warn(`servers.dat sync skipped for ${inst.id}`, e);
     }
-    // Normalize old LifeaMC aliases and remove duplicate copies left by earlier builds.
-    let hasPartner = false;
-    entries = entries.filter((entry) => {
-      const address = entry.type === 'compound' && entry.value.ip?.type === 'string' ? entry.value.ip.value : '';
-      if (!isPartnerAddress(address)) return true;
-      if (hasPartner) return false;
-      hasPartner = true;
-      if (entry.type === 'compound') {
-        entry.value.name = { type: 'string', value: '★ LifeaMC' };
-        entry.value.ip = { type: 'string', value: 'lifeamc.fun' };
-      }
-      return true;
-    });
-    const ipOf = (e: NbtValue) => (e.type === 'compound' && e.value.ip?.type === 'string' ? e.value.ip.value : '');
-    for (const s of allServers) {
-      const existing = entries.find((entry) => ipOf(entry).toLowerCase() === s.address.toLowerCase());
-      if (existing?.type === 'compound') {
-        // Keep the official partner name and star even if the player previously saved an unstarred duplicate.
-        if (s.id === 'lifeamc') {
-          existing.value.name = { type: 'string', value: `★ ${s.name}` };
-          existing.value.ip = { type: 'string', value: s.address };
-        }
-        continue;
-      }
-      entries.push({ type: 'compound', value: { name: { type: 'string', value: s.id === 'lifeamc' ? `★ ${s.name}` : s.name }, ip: { type: 'string', value: s.address } } });
-    }
-    await writeFileAtomic(file, writeNbt('', { type: 'compound', value: { servers: { type: 'list', elementType: 'compound', value: entries } } }));
   }
+}
+
+async function syncOne(file: string, allServers: Server[], isPartnerAddress: (address: string) => boolean): Promise<void> {
+  let entries: NbtValue[] = [];
+  const raw = await fs.readFile(file).catch((e: NodeJS.ErrnoException) => {
+    if (e.code === 'ENOENT') return null;
+    throw e;
+  });
+  if (raw) {
+    // Never overwrite a file we couldn't parse: it holds the player's own in-game server list.
+    const root = readNbt(raw).value;
+    if (root.type === 'compound' && root.value.servers?.type === 'list') entries = root.value.servers.value;
+  }
+  // Normalize old LifeaMC aliases and remove duplicate copies left by earlier builds.
+  let hasPartner = false;
+  entries = entries.filter((entry) => {
+    const address = entry.type === 'compound' && entry.value.ip?.type === 'string' ? entry.value.ip.value : '';
+    if (!isPartnerAddress(address)) return true;
+    if (hasPartner) return false;
+    hasPartner = true;
+    if (entry.type === 'compound') {
+      entry.value.name = { type: 'string', value: '★ LifeaMC' };
+      entry.value.ip = { type: 'string', value: 'lifeamc.fun' };
+    }
+    return true;
+  });
+  const ipOf = (e: NbtValue) => (e.type === 'compound' && e.value.ip?.type === 'string' ? e.value.ip.value : '');
+  for (const s of allServers) {
+    const existing = entries.find((entry) => ipOf(entry).toLowerCase() === s.address.toLowerCase());
+    if (existing?.type === 'compound') {
+      // Keep the official partner name and star even if the player previously saved an unstarred duplicate.
+      if (s.id === 'lifeamc') {
+        existing.value.name = { type: 'string', value: `★ ${s.name}` };
+        existing.value.ip = { type: 'string', value: s.address };
+      }
+      continue;
+    }
+    entries.push({ type: 'compound', value: { name: { type: 'string', value: s.id === 'lifeamc' ? `★ ${s.name}` : s.name }, ip: { type: 'string', value: s.address } } });
+  }
+  await writeFileAtomic(file, writeNbt('', { type: 'compound', value: { servers: { type: 'list', elementType: 'compound', value: entries } } }));
 }

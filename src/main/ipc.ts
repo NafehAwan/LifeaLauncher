@@ -16,7 +16,7 @@ import { getSettings, updateSettings } from './core/settings';
 import { emit } from './core/events';
 import { addMicrosoftAccount, addOfflineAccount, listAccounts, msaAccessToken, removeAccount, updateAccountProfile } from './accounts/store';
 import { interactiveMicrosoftLogin } from './accounts/msa-window';
-import { msaClientId, uploadSkin } from './accounts/msa';
+import { httpsTexture, msaClientId, uploadSkin } from './accounts/msa';
 import { analyze } from './game/boost';
 import {
   addFiles,
@@ -50,6 +50,7 @@ import { checkForUpdates, installUpdate, updaterState } from './updater';
 const id = z.string().min(1).max(128).regex(/^[\w.-]+$/);
 const kind = z.enum(['mods', 'resourcepacks', 'shaderpacks']);
 const fileName = z.string().min(1).max(255).refine((s) => !/[\\/]/.test(s) && s !== '..' && s !== '.', 'bad file name');
+const accountId = z.string().min(1).max(64).regex(/^[\w-]+$/, 'bad account id');
 const loader = z.enum(['vanilla', 'fabric', 'quilt', 'forge', 'neoforge']);
 const mcVersion = z.string().min(1).max(64);
 const wardrobeKind = z.enum(['skins', 'capes']);
@@ -293,20 +294,26 @@ export function registerIpc(): void {
 
   /* accounts */
   handle('accounts:list', none, () => listAccounts());
-  handle('accounts:select', z.tuple([z.string().uuid()]), async ([i]) => {
+  handle('accounts:select', z.tuple([accountId]), async ([i]) => {
     updateSettings({ selectedAccountId: i });
-    social.signOut();
-    void social.signIn();
+    void social.resetSession();
   });
-  handle('accounts:add-offline', z.tuple([z.string().max(16)]), async ([n]) => addOfflineAccount(n));
+  handle('accounts:add-offline', z.tuple([z.string().max(16)]), async ([n]) => {
+    const acc = await addOfflineAccount(n);
+    void social.resetSession();
+    return acc;
+  });
   handle('accounts:login-microsoft', none, async (_a, e) => {
     const { tokens, session } = await interactiveMicrosoftLogin(win(e));
     const acc = await addMicrosoftAccount(tokens, session);
-    void social.signIn();
+    void social.resetSession();
     return acc;
   });
-  handle('accounts:remove', z.tuple([z.string().uuid()]), ([i]) => removeAccount(i));
-  handle('accounts:upload-skin', z.tuple([z.string().uuid(), z.enum(['classic', 'slim']), fileName.optional()]), async ([accId, variant, skinFile], e) => {
+  handle('accounts:remove', z.tuple([accountId]), async ([i]) => {
+    await removeAccount(i);
+    void social.resetSession();
+  });
+  handle('accounts:upload-skin', z.tuple([accountId, z.enum(['classic', 'slim']), fileName.optional()]), async ([accId, variant, skinFile], e) => {
     const file = skinFile ? safeJoin(join(wardrobeDir(), 'skins'), skinFile) : (await pickFiles(e, 'Skin', ['png'], false))[0];
     if (!file) throw new Error('No skin selected.');
     const png = await fs.readFile(file);
@@ -314,9 +321,9 @@ export function registerIpc(): void {
     if (err) throw new Error(err);
     const profile = await uploadSkin(await msaAccessToken(accId), png, variant);
     const active = profile.skins?.find((s) => s.state === 'ACTIVE');
-    return updateAccountProfile(accId, { skinUrl: active?.url, skinVariant: variant });
+    return updateAccountProfile(accId, { skinUrl: httpsTexture(active?.url), skinVariant: variant });
   });
-  handle('accounts:set-skin', z.tuple([z.string().uuid(), fileName.nullable(), z.enum(['classic', 'slim'])]), async ([accId, file, variant]) => {
+  handle('accounts:set-skin', z.tuple([accountId, fileName.nullable(), z.enum(['classic', 'slim'])]), async ([accId, file, variant]) => {
     if (file) {
       const skinPath = safeJoin(join(wardrobeDir(), 'skins'), file);
       const validation = validateTexture('skins', await fs.readFile(skinPath));
@@ -326,7 +333,7 @@ export function registerIpc(): void {
     if (getSettings().selectedAccountId === accId && getSettings().selectedInstanceId) await writeCosmeticsSync(getSettings().selectedInstanceId!, updated);
     return updated;
   });
-  handle('accounts:set-cape', z.tuple([z.string().uuid(), fileName.nullable()]), async ([accId, file]) => {
+  handle('accounts:set-cape', z.tuple([accountId, fileName.nullable()]), async ([accId, file]) => {
     if (file) {
       const capePath = safeJoin(join(wardrobeDir(), 'capes'), file);
       const validation = validateTexture('capes', await fs.readFile(capePath));
@@ -336,7 +343,7 @@ export function registerIpc(): void {
     if (getSettings().selectedAccountId === accId && getSettings().selectedInstanceId) await writeCosmeticsSync(getSettings().selectedInstanceId!, updated);
     return updated;
   });
-  handle('accounts:set-cosmetic', z.tuple([z.string().uuid(), z.enum(['wings', 'hat', 'bandana']), z.string().regex(/^[a-z0-9_-]{1,40}$/i).nullable()]), async ([accId, type, cosmeticId]) => {
+  handle('accounts:set-cosmetic', z.tuple([accountId, z.enum(['wings', 'hat', 'bandana']), z.string().regex(/^[a-z0-9_-]{1,40}$/i).nullable()]), async ([accId, type, cosmeticId]) => {
     const accounts = await listAccounts();
     const account = accounts.find((entry) => entry.id === accId);
     if (!account) throw new Error('Account was not found.');

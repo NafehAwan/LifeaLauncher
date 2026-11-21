@@ -122,7 +122,8 @@ function normalizeStoredAccounts(value: unknown): { accounts: StoredAccount[]; m
     }
     const secret = typeof a.secret === 'string' ? a.secret : typeof a.encryptedSecret === 'string' ? a.encryptedSecret : undefined;
     const account: StoredAccount = {
-      id: typeof a.id === 'string' && a.id && !/^[\da-f-]{32,36}$/i.test(a.id) ? a.id : typeof a.accountId === 'string' && a.accountId ? a.accountId : randomUUID(),
+      // Keep the id we already gave this account: settings.selectedAccountId points at it.
+      id: typeof a.id === 'string' && a.id.trim() ? a.id : typeof a.accountId === 'string' && a.accountId.trim() ? a.accountId : randomUUID(),
       type,
       username,
       uuid,

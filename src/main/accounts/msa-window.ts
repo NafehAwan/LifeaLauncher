@@ -1,11 +1,11 @@
 /** Interactive Microsoft sign-in in a popup window (auth code + PKCE). */
 import { BrowserWindow, session } from 'electron';
 import { randomBytes } from 'node:crypto';
-import { authorizeUrl, exchangeCode, minecraftLogin, MSA, msaClientId, pkcePair, type MinecraftSession, type MsaTokens } from './msa';
+import { authorizeUrl, exchangeCode, isRedirectUrl, minecraftLogin, msaClientId, pkcePair, type MinecraftSession, type MsaTokens } from './msa';
 
 export async function interactiveMicrosoftLogin(parent?: BrowserWindow): Promise<{ tokens: MsaTokens; session: MinecraftSession }> {
   const clientId = msaClientId();
-  if (!clientId) throw new Error('Microsoft login is unavailable. Use an offline account for now.');
+  if (!clientId) throw new Error('Microsoft login is not set up in this build yet (it needs Lifea\'s own Mojang-approved Azure app ID). Use an offline account for now.');
   const { verifier, challenge } = pkcePair();
   const state = randomBytes(16).toString('hex');
   const code = await new Promise<string>((resolve, reject) => {
@@ -21,13 +21,8 @@ export async function interactiveMicrosoftLogin(parent?: BrowserWindow): Promise
     });
     let settled = false;
     const check = (url: string) => {
-      let redirected: URL;
-      try {
-        redirected = new URL(url);
-      } catch {
-        return false;
-      }
-      if (redirected.origin !== MSA.redirect) return false;
+      if (!isRedirectUrl(url)) return false;
+      const redirected = new URL(url);
       settled = true;
       win.close();
       if (redirected.searchParams.get('state') !== state) reject(new Error('Sign-in was interrupted (state mismatch).'));

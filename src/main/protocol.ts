@@ -41,7 +41,12 @@ export function handleAppProtocol(): void {
     if (!existsSync(file)) return new Response('Not found', { status: 404 });
     const res = await net.fetch(pathToFileURL(file).toString());
     const headers = new Headers(res.headers);
-    if (url.host !== 'lifea') headers.set('Cache-Control', 'no-cache');
+    if (url.host !== 'lifea') {
+      headers.set('Cache-Control', 'no-cache');
+      // The 3D skin viewer loads textures with crossOrigin="anonymous" from app://lifea; without this the WebGL
+      // texture load fails and the preview silently falls back to Steve. Only these read-only image hosts get it.
+      headers.set('Access-Control-Allow-Origin', 'app://lifea');
+    }
     return new Response(res.body, { status: res.status, headers });
   });
 }

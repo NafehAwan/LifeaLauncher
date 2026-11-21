@@ -2,22 +2,39 @@
  * Microsoft → Xbox Live → XSTS → Minecraft token chain. Pure HTTP (no Electron) so it can be tested with stubs.
  * The interactive login window lives in `msa-window.ts`.
  *
- * This uses Microsoft's public Xbox Live client registration so no custom Azure
- * app registration is required. Offline accounts remain available separately.
+ * Lifea signs in with its OWN Azure app (never another launcher's client ID). A new Azure app ID must be approved by
+ * Mojang before api.minecraftservices.com accepts its tokens; until then offline accounts work.
+ * Configure it with LIFEA_MSA_CLIENT_ID (baked in at build time by CI, or set at runtime). See README "Microsoft login".
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { getJson, HttpError, postJson, request } from '../core/http';
-export const UNIVERSAL_MSA_CLIENT_ID = '00000000402b5328';
+import { BUILD_MSA_CLIENT_ID } from '../core/build-info';
 
 export const MSA = {
-  authorize: 'https://login.live.com/oauth20_authorize.srf',
-  token: 'https://login.live.com/oauth20_token.srf',
-  redirect: 'https://live.com',
+  authorize: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize',
+  token: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
+  redirect: 'https://login.microsoftonline.com/common/oauth2/nativeclient',
   scope: 'XboxLive.signin offline_access',
 };
 
 export function msaClientId(): string {
-  return UNIVERSAL_MSA_CLIENT_ID;
+  return (process.env.LIFEA_MSA_CLIENT_ID || BUILD_MSA_CLIENT_ID || '').trim();
+}
+
+/** True when `url` is the OAuth redirect (same origin AND path; the authorize page shares the origin). */
+export function isRedirectUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const r = new URL(MSA.redirect);
+    return u.origin === r.origin && u.pathname === r.pathname;
+  } catch {
+    return false;
+  }
+}
+
+/** Mojang still hands out http:// texture URLs; the renderer's CSP (and mixed content rules) need https. */
+export function httpsTexture(url: string | undefined): string | undefined {
+  return url?.replace(/^http:\/\/textures\.minecraft\.net\//, 'https://textures.minecraft.net/');
 }
 
 export function pkcePair(): { verifier: string; challenge: string } {
@@ -106,9 +123,9 @@ export function profileToSession(token: { accessToken: string; expiresAt: number
     expiresAt: token.expiresAt,
     uuid: dashUuid(p.id),
     username: p.name,
-    skinUrl: skin?.url,
+    skinUrl: httpsTexture(skin?.url),
     skinVariant: skin?.variant?.toLowerCase() === 'slim' ? 'slim' : 'classic',
-    capeUrl: cape?.url,
+    capeUrl: httpsTexture(cape?.url),
   };
 }
 

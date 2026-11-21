@@ -32,6 +32,8 @@ import { listServers, syncServersDat } from '../servers/store';
 export interface LaunchContext {
   instance: Instance;
   version: VersionJson;
+  /** Loader version actually installed for this launch (resolved from "latest" when the profile doesn't pin one). */
+  loaderVersion?: string;
   javaMajor: number;
   signal: AbortSignal;
   log: (level: LogLevel, msg: string) => void;
@@ -40,6 +42,8 @@ export interface LaunchContext {
 }
 
 type PreLaunchHook = (ctx: LaunchContext) => Promise<void>;
+/** Thrown by a pre-launch hook when starting the game anyway would only crash it. */
+export class FatalLaunchError extends Error {}
 const preLaunchHooks: PreLaunchHook[] = [];
 export function addPreLaunchHook(h: PreLaunchHook): void {
   preLaunchHooks.push(h);
@@ -221,7 +225,10 @@ async function resolveJava(inst: Instance, major: number, component: string | un
 
 async function run(job: LaunchJob, opts: { server?: string; world?: string }): Promise<void> {
   const signal = job.controller.signal;
-  await syncServersDat(await listServers());
+  // servers.dat is a convenience; a locked file (antivirus, OneDrive) must never block a launch.
+  await listServers()
+    .then(syncServersDat)
+    .catch((e) => job.log('WARN', `Could not update servers.dat: ${(e as Error).message}`));
   const inst = await readInstance(job.instanceId);
   if (!inst) throw new Error('Profile not found.');
   const settings = getSettings();
@@ -288,13 +295,13 @@ async function run(job: LaunchJob, opts: { server?: string; world?: string }): P
   job.log('INFO', `Game files ready (${res.downloaded} downloaded, ${res.skipped} cached) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
   job.phase('launching', 'Preparing natives');
-  const nativesDir = nativesDirFor(version.id);
-  await extractNatives(plan.natives, nativesDir);
+  const nativesDir = await extractNatives(plan.natives, nativesDirFor(version.id));
   const legacyAssets = await materializeLegacyAssets(assetId, index, dir);
 
   const ctx: LaunchContext = {
     instance: inst,
     version,
+    loaderVersion: fabricProfile?.loader ?? inst.loaderVersion,
     javaMajor,
     signal,
     log: (l, m) => job.log(l, m),
@@ -305,7 +312,7 @@ async function run(job: LaunchJob, opts: { server?: string; world?: string }): P
     try {
       await hook(ctx);
     } catch (e) {
-      if (isAbort(e)) throw e;
+      if (isAbort(e) || e instanceof FatalLaunchError) throw e;
       job.log('WARN', `Pre-launch step failed: ${(e as Error).message}`);
     }
   }

@@ -3,7 +3,7 @@
 export type Loader = 'vanilla' | 'fabric' | 'quilt' | 'forge' | 'neoforge';
 export type ContentKind = 'mods' | 'resourcepacks' | 'shaderpacks';
 export type ContentSource = 'modrinth' | 'manual' | 'modpack' | 'lifea';
-export type BuiltinProfile = 'lifea-latest' | 'lifea-1.20.1' | 'lifea-pvp';
+export type BuiltinProfile = 'lifea-1.21.11' | 'lifea-latest' | 'lifea-1.20.1' | 'lifea-pvp';
 
 export interface ContentMeta {
   name?: string;

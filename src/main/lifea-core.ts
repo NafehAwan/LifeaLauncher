@@ -8,44 +8,24 @@ import { app } from 'electron';
 import { promises as fs } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { selectedAccount } from './accounts/store';
-import { addPreLaunchHook } from './game/launch';
+import { addPreLaunchHook, FatalLaunchError } from './game/launch';
 import { bridgeInfo } from './game/bridge';
 import { deleteContent, listContent, toggleContent } from './game/instances';
 import { installProject, optimize } from './game/modrinth';
 import { writeCosmeticsSync } from './game/cosmetics-sync';
 import { safeJoin } from './core/fsx';
+import { fabricApiMatches, findCoreJars } from './game/core-jars';
 import { wardrobeDir } from './core/paths';
 
 function bundledModDirs(): string[] {
-  return app.isPackaged ? [join(process.resourcesPath, 'lifea-core')] : [join(app.getAppPath(), 'mod', 'build', 'libs'), join(app.getAppPath(), 'mod', 'tuff-client', 'build', 'libs'), join(app.getAppPath(), 'resources', 'lifea-core')];
-}
-
-async function findCoreJars(mc: string, loader: string, loaderVersion?: string): Promise<string[]> {
-  if (loader !== 'fabric') return [];
-  const hits: string[] = [];
-  for (const dir of bundledModDirs()) {
-    const files = await fs.readdir(dir).catch(() => [] as string[]);
-    for (const file of files) {
-      if (!file.endsWith(`+mc${mc}.jar`) || file.includes('sources')) continue;
-      if (file.startsWith('tuff-client-') && !atLeastVersion(loaderVersion, '0.19.5')) continue;
-      if (file.startsWith('lifea-core-') && !atLeastVersion(loaderVersion, '0.16.0')) continue;
-      if (file.startsWith('lifea-core-') || file.startsWith('tuff-client-')) hits.push(join(dir, file));
-    }
-  }
-  return hits;
-}
-
-function atLeastVersion(actual: string | undefined, required: string): boolean {
-  if (!actual) return false;
-  const parse = (value: string) => value.split(/[.+-]/).slice(0, 3).map((part) => Number.parseInt(part, 10));
-  const a = parse(actual);
-  const b = parse(required);
-  if ([...a, ...b].some((part) => !Number.isFinite(part))) return false;
-  for (let i = 0; i < 3; i++) {
-    if (a[i] > b[i]) return true;
-    if (a[i] < b[i]) return false;
-  }
-  return true;
+  if (app.isPackaged) return [join(process.resourcesPath, 'lifea-core')];
+  const root = app.getAppPath();
+  return [
+    join(root, 'mod', 'build', 'libs'),
+    join(root, 'mod', 'mc1_21_11', 'build', 'libs'),
+    join(root, 'mod', 'tuff-client', 'build', 'libs'),
+    join(root, 'resources', 'lifea-core'),
+  ];
 }
 
 function safePathSegment(value: string): string {
@@ -57,9 +37,10 @@ export function registerLifeaHooks(): void {
     const inst = ctx.instance;
     const mods = await listContent(inst.id, 'mods');
 
-    if (!inst.lastPlayed && mods.filter((m) => m.source !== 'lifea').length === 0 && inst.loader !== 'vanilla') {
+    // Only Lifea's own profiles get the performance pack automatically; user profiles get it from Boost → Optimize.
+    if (inst.builtin && !inst.lastPlayed && mods.filter((m) => m.source !== 'lifea').length === 0 && inst.loader !== 'vanilla') {
       ctx.phase('installing', 'Installing performance mods (first launch)');
-      const r = await optimize(inst.id, false, ctx.signal);
+      const r = await optimize(inst.id, false, ctx.signal, { releasesOnly: true });
       ctx.log('INFO', `Performance pack: ${r.installed.map((i) => i.name).join(', ') || 'nothing new'}`);
       for (const w of r.warnings) ctx.log('WARN', w);
     }
@@ -73,21 +54,28 @@ export function registerLifeaHooks(): void {
       await deleteContent(inst.id, 'mods', ['lifea-core.jar']);
     }
 
-    const jars = await findCoreJars(inst.version, inst.loader, inst.loaderVersion);
+    const jars = await findCoreJars(bundledModDirs(), inst.version, inst.loader, ctx.loaderVersion);
     if (inst.loader === 'fabric' && jars.length > 0) {
+      // The client mods need Fabric API. Without a matching one Minecraft crashes on start, so fix it or stop here.
       const installedMods = await listContent(inst.id, 'mods');
-      const fabricApi = installedMods.find((mod) => mod.file.toLowerCase().startsWith('fabric-api'));
-      const apiMatchesVersion = fabricApi && `${fabricApi.version ?? ''} ${fabricApi.file}`.includes(inst.version);
-      if (fabricApi && !apiMatchesVersion) {
-        throw new Error(`Fabric API in this profile does not match Minecraft ${inst.version}. Remove or replace ${fabricApi.file}, then launch again.`);
+      const fabricApis = installedMods.filter((mod) => mod.file.toLowerCase().startsWith('fabric-api'));
+      const matching = fabricApis.find((mod) => fabricApiMatches(`${mod.version ?? ''} ${mod.file}`, inst.version));
+      if (!matching && fabricApis.length) {
+        await deleteContent(inst.id, 'mods', fabricApis.map((mod) => mod.file));
+        ctx.log('WARN', `Removed Fabric API built for another Minecraft version: ${fabricApis.map((mod) => mod.file).join(', ')}`);
       }
-      if (fabricApi && !fabricApi.enabled) {
-        await toggleContent(inst.id, 'mods', fabricApi.file, true);
-        ctx.log('INFO', 'Enabled Fabric API, required by the bundled client mod.');
-      } else if (!fabricApi) {
-        ctx.phase('installing', 'Installing client mod dependency (Fabric API)');
-        const dependency = await installProject(inst.id, 'fabric-api', undefined, ctx.signal);
-        ctx.log('INFO', `Fabric API installed: ${dependency.installed.map((item) => item.file).join(', ') || 'already present'}`);
+      if (matching && !matching.enabled) {
+        await toggleContent(inst.id, 'mods', matching.file, true);
+        ctx.log('INFO', 'Enabled Fabric API, required by the Lifea client.');
+      } else if (!matching) {
+        ctx.phase('installing', 'Installing Fabric API (needed by the Lifea client)');
+        try {
+          const dependency = await installProject(inst.id, 'fabric-api', undefined, ctx.signal);
+          ctx.log('INFO', `Fabric API installed: ${dependency.installed.map((item) => item.file).join(', ') || 'already present'}`);
+        } catch (e) {
+          if ((e as Error).name === 'AbortError') throw e;
+          throw new FatalLaunchError(`Could not install Fabric API, which the Lifea client needs: ${(e as Error).message}. Check your connection and try again.`);
+        }
       }
     }
     if (jars.length) {
@@ -97,7 +85,7 @@ export function registerLifeaHooks(): void {
         app.getPath('userData'),
         'core-mods',
         inst.loader,
-        safePathSegment(inst.loaderVersion ?? 'loader-default'),
+        safePathSegment(ctx.loaderVersion ?? 'loader-default'),
         safePathSegment(inst.version),
         safePathSegment(inst.id),
       );
@@ -112,7 +100,7 @@ export function registerLifeaHooks(): void {
       ctx.extraJvmArgs.push(`${property}${destinations.join(delimiter)}`);
       ctx.log('INFO', `Version-matched Lifea client mods for Minecraft ${inst.version} loaded from launcher storage.`);
     } else {
-      ctx.log('DEBUG', `No version-matched Lifea client mod for Minecraft ${inst.version}; skipped to avoid a version mismatch.`);
+      ctx.log('WARN', `The Lifea client is not available for ${inst.loader} ${inst.version} yet; starting without it.`);
     }
 
     if (jars.some((jar) => jar.includes('lifea-core-'))) {

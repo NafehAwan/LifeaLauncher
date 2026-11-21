@@ -3,7 +3,7 @@
  * tests use the global fetch or a stub.
  */
 let fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args);
-let userAgent = 'LifeaLauncher (+https://github.com/cravewhoo/LifeaLauncher-updated)';
+let userAgent = 'LifeaLauncher (+https://github.com/nafehawan/lifealauncher)';
 
 export function setFetch(impl: typeof fetch): void {
   fetchImpl = impl;
@@ -33,9 +33,18 @@ export async function request(url: string, init: RequestInit = {}): Promise<Resp
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     const ra = res.headers.get('retry-after');
-    throw new HttpError(res.status, url, body, ra ? Number(ra) * 1000 : undefined);
+    throw new HttpError(res.status, url, body, retryAfterMs(ra));
   }
   return res;
+}
+
+/** Retry-After is either delay-seconds or an HTTP date. */
+export function retryAfterMs(value: string | null, now = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? Math.max(0, at - now) : undefined;
 }
 
 export async function getJson<T>(url: string, init: RequestInit = {}): Promise<T> {

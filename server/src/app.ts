@@ -26,7 +26,7 @@ export interface Options {
 }
 
 type Presence = { state: 'offline' | 'launcher' | 'playing'; server?: string; version?: string; since?: number };
-const COSMETIC_TYPES = ['cape', 'wings', 'hat', 'bandana', 'pet', 'emote'] as const;
+const COSMETIC_TYPES = ['cape', 'wings', 'hat', 'bandana', 'bodywear', 'pet', 'emote'] as const;
 const USERNAME = /^[A-Za-z0-9_]{3,16}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

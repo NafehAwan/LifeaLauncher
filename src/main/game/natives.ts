@@ -7,12 +7,21 @@ import { readJson, writeJsonAtomic } from '../core/fsx';
 
 const NATIVE_EXT = /\.(dll|so|dylib|jnilib)$/i;
 
-export async function extractNatives(natives: { path: string; exclude: string[] }[], dir: string): Promise<void> {
+/** Extracts into `dir` and returns the folder to use (a fresh sibling if a running game still holds the old DLLs). */
+export async function extractNatives(natives: { path: string; exclude: string[] }[], dir: string): Promise<string> {
   const stamp = createHash('sha1').update(natives.map((n) => n.path).sort().join('\n')).digest('hex');
   const marker = join(dir, '.lifea-natives.json');
   const prev = await readJson<{ stamp: string }>(marker);
-  if (prev?.stamp === stamp) return;
-  await fs.rm(dir, { recursive: true, force: true });
+  if (prev?.stamp === stamp) return dir;
+  try {
+    await fs.rm(dir, { recursive: true, force: true });
+  } catch {
+    // Windows: EBUSY/EPERM while another instance of this version has the libraries loaded.
+    dir = `${dir}-${stamp.slice(0, 8)}`;
+    const reuse = await readJson<{ stamp: string }>(join(dir, '.lifea-natives.json'));
+    if (reuse?.stamp === stamp) return dir;
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
   await fs.mkdir(dir, { recursive: true });
   for (const n of natives) {
     const exclude = ['META-INF/', ...n.exclude];
@@ -23,5 +32,6 @@ export async function extractNatives(natives: { path: string; exclude: string[] 
       return name.split('/').pop() ?? null;
     });
   }
-  await writeJsonAtomic(marker, { stamp });
+  await writeJsonAtomic(join(dir, '.lifea-natives.json'), { stamp });
+  return dir;
 }

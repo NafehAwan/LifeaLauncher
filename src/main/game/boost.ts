@@ -37,9 +37,12 @@ export async function analyze(instanceId: string): Promise<BoostAnalysis> {
   const mods = await listContent(instanceId, 'mods');
   const recommendedMemoryMb = recommendMemoryMb(totalMemMb, mods.length);
   const memoryMb = inst.settings.memoryMb ?? settings.defaultMemoryMb;
-  const ids = new Set(mods.filter((m) => m.enabled).map((m) => m.projectId).filter(Boolean));
-  const names = mods.filter((m) => m.enabled).map((m) => m.file.toLowerCase());
-  const installed = PERFORMANCE_MODS.filter((p) => names.some((n) => n.startsWith(p.slug.replace(/-/g, '')) || n.startsWith(p.slug)) || [...ids].some((id) => id === p.slug)).map((p) => p.slug);
+  // Match by file name, or by the Modrinth project title we stored at install (metadata has ids, not slugs).
+  const squash = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const enabled = mods.filter((m) => m.enabled);
+  const names = enabled.map((m) => m.file.toLowerCase());
+  const titles = new Set(enabled.map((m) => (m.name ? squash(m.name) : '')).filter(Boolean));
+  const installed = PERFORMANCE_MODS.filter((p) => names.some((n) => n.startsWith(p.slug.replace(/-/g, '')) || n.startsWith(p.slug)) || titles.has(squash(p.slug))).map((p) => p.slug);
   const suggestions: BoostSuggestion[] = inst.loader === 'vanilla'
     ? []
     : PERFORMANCE_MODS.filter((p) => p.loaders.includes(inst.loader) && !installed.includes(p.slug)).map((p) => ({ slug: p.slug, title: p.title, description: p.description, impact: p.impact }));

@@ -99,12 +99,32 @@ async function writeVersionFile(inst: Instance, kind: ContentKind, project: Modr
   return file.filename;
 }
 
-export async function installProject(instanceId: string, projectId: string, versionId?: string, signal?: AbortSignal): Promise<InstallResult> {
+/** Installs into one profile run one at a time, so two "Install" clicks can't overwrite each other's metadata. */
+const installLocks = new Map<string, Promise<unknown>>();
+function withInstallLock<T>(instanceId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = installLocks.get(instanceId) ?? Promise.resolve();
+  const run = prev.catch(() => undefined).then(fn);
+  const tail = run.catch(() => undefined);
+  installLocks.set(instanceId, tail);
+  void tail.then(() => {
+    if (installLocks.get(instanceId) === tail) installLocks.delete(instanceId);
+  });
+  return run;
+}
+
+export function installProject(instanceId: string, projectId: string, versionId?: string, signal?: AbortSignal): Promise<InstallResult> {
+  return withInstallLock(instanceId, () => installProjectNow(instanceId, projectId, versionId, signal));
+}
+
+async function installProjectNow(instanceId: string, projectId: string, versionId?: string, signal?: AbortSignal): Promise<InstallResult> {
   const inst = await readInstance(instanceId);
   if (!inst) throw new Error('Profile not found.');
   const result: InstallResult = { installed: [], skipped: [], warnings: [] };
   const have = await installedProjectIds(inst);
   const visiting = new Set<string>();
+  // Jars added by hand have no metadata; match them by file name so a dependency isn't installed twice.
+  const jars = (await listContent(instanceId, 'mods').catch(() => [])).map((m) => m.file.toLowerCase());
+  const hasJarFor = (slug: string) => jars.some((j) => j.startsWith(`${slug.toLowerCase()}-`) || j.startsWith(`${slug.toLowerCase()}_`));
 
   const installOne = async (pid: string, vid: string | undefined, isDependency: boolean): Promise<void> => {
     if (visiting.has(pid)) return;
@@ -114,7 +134,7 @@ export async function installProject(instanceId: string, projectId: string, vers
     if (project.project_type === 'mod' && inst.loader === 'vanilla') {
       throw new Error(`${project.title} is a mod, and “${inst.name}” is a vanilla profile. Convert it to Fabric (profile settings) first.`);
     }
-    if (isDependency && have.has(project.id)) {
+    if (isDependency && (have.has(project.id) || hasJarFor(project.slug))) {
       result.skipped.push(`${project.title} (already installed)`);
       return;
     }
@@ -221,7 +241,7 @@ export async function applyUpdates(instanceId: string, updates: UpdateInfo[]): P
 /* ---- optimize ---- */
 
 /** Install the version-correct performance set. `dryRun` returns what would be installed without touching disk. */
-export async function optimize(instanceId: string, dryRun: boolean, signal?: AbortSignal): Promise<InstallResult> {
+export async function optimize(instanceId: string, dryRun: boolean, signal?: AbortSignal, opts: { releasesOnly?: boolean } = {}): Promise<InstallResult> {
   const inst = await readInstance(instanceId);
   if (!inst) throw new Error('Profile not found.');
   const result: InstallResult = { installed: [], skipped: [], warnings: [] };
@@ -240,9 +260,10 @@ export async function optimize(instanceId: string, dryRun: boolean, signal?: Abo
         continue;
       }
       const loaders = acceptableLoaders('mod', inst.loader);
-      const version = pickVersion(await getVersions(project.id, { gameVersion: inst.version, loaders }), inst.version, loaders);
+      const candidates = await getVersions(project.id, { gameVersion: inst.version, loaders });
+      const version = pickVersion(opts.releasesOnly ? candidates.filter((v) => v.version_type === 'release') : candidates, inst.version, loaders);
       if (!version) {
-        result.skipped.push(`${mod.title} (no build for ${inst.version})`);
+        result.skipped.push(`${mod.title} (no ${opts.releasesOnly ? 'stable ' : ''}build for ${inst.version})`);
         continue;
       }
       if (dryRun) {
