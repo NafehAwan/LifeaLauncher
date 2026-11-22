@@ -41,6 +41,18 @@ public class LifeaCoreGameTest implements FabricClientGameTest {
             .containsAll(java.util.List.of("key.lifea.menu", "key.lifea.zoom", "key.lifea.freelook", "key.lifea.waypoint")));
         check(keysRegistered, "Lifea key bindings are not registered");
 
+        // Screens that don't need a world: title, Lifea menu and HUD editor over the title screen.
+        ctx.waitTicks(20);
+        ctx.takeScreenshot("lifea-00-title");
+        ctx.setScreen(LifeaMenuScreen::new);
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("lifea-00-menu-title");
+        ctx.setScreen(() -> new HudEditorScreen(new TitleScreen()));
+        ctx.waitTicks(10);
+        ctx.takeScreenshot("lifea-00-hud-editor-title");
+        ctx.setScreen(TitleScreen::new);
+        ctx.waitTicks(5);
+
         try (TestSingleplayerContext world = ctx.worldBuilder().create()) {
             world.getServer().runCommand("time set noon");
             world.getServer().runCommand("weather clear");

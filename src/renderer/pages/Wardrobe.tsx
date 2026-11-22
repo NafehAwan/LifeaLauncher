@@ -67,7 +67,7 @@ export default function Wardrobe() {
     const on = account.localCosmetics?.[type] === id;
     const updated = await attempt(() => call('accounts:set-cosmetic', account.id, type, on ? null : id), 'Could not save cosmetic');
     if (updated) {
-      toast.success(on ? 'Cosmetic unequipped' : 'Saved to this account for LifeaCore 1.21.4.');
+      toast.success(on ? 'Cosmetic unequipped' : 'Saved to this account for the Lifea client.');
       void qc.invalidateQueries({ queryKey: qk.accounts });
     }
   };
@@ -103,7 +103,7 @@ export default function Wardrobe() {
               {account?.type === 'msa' && <span className="text-2xs text-t3">Selected Microsoft skins upload to your profile; offline skins stay local.</span>}
             </div>
           </div>
-          <p className="text-2xs text-t3 mt-2 w-[420px]">Drag to rotate, scroll to zoom. Local Lifea capes render with the bundled LifeaCore profile (Minecraft 1.21.4).</p>
+          <p className="text-2xs text-t3 mt-2 w-[420px]">Drag to rotate, scroll to zoom. Lifea capes and cosmetics show in game on Fabric 1.21.11 and 1.21.4 profiles.</p>
         </div>
 
         <div className="flex-1 min-w-0">
@@ -165,7 +165,7 @@ export default function Wardrobe() {
                           void (async () => {
                             const updated = await attempt(() => call('accounts:set-cape', account.id, equippedCape ? null : it.file), 'Cape equip failed');
                             if (updated) {
-                              toast.success(equippedCape ? 'Lifea cape removed' : 'Lifea cape equipped for LifeaCore 1.21.4');
+                              toast.success(equippedCape ? 'Lifea cape removed' : 'Lifea cape equipped');
                               void qc.invalidateQueries({ queryKey: qk.accounts });
                             }
                           })();
@@ -187,7 +187,7 @@ export default function Wardrobe() {
             </>
           ) : (
             <div className="mt-4">
-              <p className="text-xs text-t3 mb-4">Wings, headwear, and bandanas are saved to this account and rendered locally by the bundled LifeaCore profile for Minecraft 1.21.4. No cosmetics backend is needed.</p>
+              <p className="text-xs text-t3 mb-4">Wings, headwear, and bandanas are saved to this account and rendered by the Lifea client on Fabric 1.21.11 and 1.21.4 profiles. No cosmetics backend is needed.</p>
               {!account && <EmptyState icon={User} title="Select an account" body="Choose an account before saving cosmetics." />}
               <div className="flex flex-col gap-5">
                 {(['wings', 'hat', 'bandana'] as const).map((type) => (
